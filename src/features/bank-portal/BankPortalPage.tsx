@@ -1,0 +1,102 @@
+import React from "react";
+import { 
+  Container, Heading, Tabs, TabList, Tab, TabPanels, TabPanel, 
+  Text, Box, Flex, Button, HStack, Badge, Menu, MenuButton, MenuList, MenuItem
+} from '@chakra-ui/react';
+import { ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { injected } from "wagmi/connectors";
+import { useNavigate } from "react-router-dom";
+
+// V2용 컴포넌트 Import
+import { SendWizard } from "../send/SendWizard";
+import { OnboardingPage } from '../onboarding/OnboardingPage'; // 👈 이 파일이 import 되어야 합니다.
+
+import { ReceiveDashboard } from "../receive/ReceiveDashboard";
+// 아래 두 개는 기존 V1 코드를 그대로 쓰거나, 없으면 아래 2, 3번 코드로 생성하세요.
+import { VaultPanel } from "./VaultPanel";
+import { MyWalletPanel } from "./MyWalletPanel";
+
+export function BankPortalPage() {
+  const { address, isConnected } = useAccount();
+  const { connect } = useConnect();
+  const { disconnect } = useDisconnect();
+  const navigate = useNavigate();
+
+  const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
+
+  return (
+    <Box minH="100vh" bg="railx.900">
+      {/* Top Navigation Bar */}
+      <Box borderBottom="1px" borderColor="railx.700" py={4} mb={8} bg="rgba(8,10,12,0.8)" backdropFilter="blur(10px)" position="sticky" top={0} zIndex={10}>
+        <Container maxW="container.xl">
+          <Flex justify="space-between" align="center">
+            <Heading as="h1" size="lg" letterSpacing="wider" color="white" cursor="pointer" onClick={() => navigate('/')}>
+              RailX <Text as="span" fontSize="sm" color="railx.accent" fontWeight="normal">V2</Text>
+            </Heading>
+
+            <Box>
+              {!isConnected ? (
+                <Button 
+                  size="sm" variant="primary" 
+                  onClick={() => connect({ connector: injected() })}
+                  boxShadow="0 0 15px rgba(201, 176, 55, 0.2)"
+                >
+                  Connect Wallet
+                </Button>
+              ) : (
+                <HStack spacing={3}>
+                  <Badge colorScheme="green" variant="subtle" fontSize="0.6rem" px={2} py={1} borderRadius="full">
+                    ● AMOY
+                  </Badge>
+                  
+                  {/* 온보딩(키 설정) 페이지로 이동하는 버튼 */}
+                  <Button size="sm" leftIcon={<SettingsIcon />} variant="outline" onClick={() => navigate('/onboarding')}>
+                    Keys
+                  </Button>
+
+                  <Menu>
+                    <MenuButton as={Button} size="sm" variant="solid" rightIcon={<ChevronDownIcon />} fontFamily="monospace" bg="whiteAlpha.100" _hover={{ bg: "whiteAlpha.200" }}>
+                      {shortAddress}
+                    </MenuButton>
+                    <MenuList bg="railx.800" borderColor="railx.700">
+                      <MenuItem bg="transparent" _hover={{ bg: "whiteAlpha.100" }} onClick={() => disconnect()}>
+                        Disconnect
+                      </MenuItem>
+                    </MenuList>
+                  </Menu>
+                </HStack>
+              )}
+            </Box>
+          </Flex>
+        </Container>
+      </Box>
+
+      {/* 메인 탭 콘텐츠 */}
+      <Container maxW="container.xl" pb={20}>
+        <Tabs isFitted variant="railx-segment" colorScheme="yellow" isLazy>
+          <TabList mb={8} bg="railx.800" p={1} borderRadius="xl" border="1px" borderColor="railx.700">
+            <Tab>Send (Compliance)</Tab>
+            <Tab>Inbox (Receive)</Tab>
+            <Tab>Vault</Tab>
+            <Tab>My Wallet</Tab>
+          </TabList>
+
+          <TabPanels>
+            {/* 1. 송금 및 NFT 발행 위저드 */}
+            <TabPanel p={0}><SendWizard /></TabPanel>
+            
+            {/* 2. 수신 및 복호화 대시보드 */}
+            <TabPanel p={0}><ReceiveDashboard /></TabPanel>
+            
+            {/* 3. 볼트 (기존 유지) */}
+            <TabPanel p={0}><VaultPanel /></TabPanel>
+            
+            {/* 4. 내 지갑 (기존 유지) */}
+            <TabPanel p={0}><MyWalletPanel /></TabPanel>
+          </TabPanels>
+        </Tabs>
+      </Container>
+    </Box>
+  );
+}
