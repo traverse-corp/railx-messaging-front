@@ -15,8 +15,7 @@ export function VaultPanel() {
     address: TOKEN_ADDRESS, abi: MockERC20Abi, functionName: 'totalSupply',
   });
 
-  const totalVal = totalSupply ? Number(formatUnits(totalSupply, 18)) : 0;
-  
+  const totalVal = totalSupply ? Number(formatUnits(BigInt(String(totalSupply)), 18)) : 0;  
   const chartData = [
     { name: 'Protocol TVL', value: totalVal * 0.4 },
     { name: 'Available Liquidity', value: totalVal * 0.6 }, 

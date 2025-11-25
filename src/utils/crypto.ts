@@ -132,8 +132,7 @@ export async function importPublicKeyFromPem(pem: string): Promise<CryptoKey> {
 
   return await window.crypto.subtle.importKey(
     "spki",
-    // 🔥 [FIX] 여기서 발생하는 에러를 'as any'로 무시
-    binaryDer.buffer as any, 
+    binaryDer.buffer as any, // 🔥 [수정] as any 추가
     { name: "RSA-OAEP", hash: "SHA-256" },
     true,
     ["encrypt"]
@@ -205,11 +204,12 @@ export async function decryptDataPacket(packet: any, myPrivateKey: CryptoKey) {
     const iv = base64ToUint8Array(ivStr);
     const encryptedContent = base64ToUint8Array(contentStr);
 
-    // 5. (A) AES 키 복호화 (Unwrap)
+// (A) AES 키 복호화 (Unwrap)
     const rawAesKey = await window.crypto.subtle.decrypt(
       { name: "RSA-OAEP" },
       myPrivateKey,
-      encryptedAesKey
+      encryptedAesKey as any // 🔥 여기가 에러일 수 있음 -> (encryptedAesKey as any) 로 변경하거나
+      // 만약 위에서 에러가 안 난다면, importKey 부분 확인:
     );
     
     const aesKey = await window.crypto.subtle.importKey(
@@ -222,9 +222,9 @@ export async function decryptDataPacket(packet: any, myPrivateKey: CryptoKey) {
 
     // 6. (B) 콘텐츠 복호화
     const decryptedBuffer = await window.crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
+      { name: "AES-GCM",iv: iv as any},
       aesKey,
-      encryptedContent
+      encryptedContent as any
     );
 
     const result = JSON.parse(new TextDecoder().decode(decryptedBuffer));

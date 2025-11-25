@@ -39,12 +39,12 @@ export function MyWalletPanel() {
   // 2. 데이터 가공
   const portfolioData = tokens.map((token, index) => {
     const rawBalance = balances?.[index]?.result;
-    const balance = rawBalance ? Number(formatUnits(rawBalance as bigint, 18)) : 0;
-    return {
-      name: token.symbol,
-      value: balance,
-      color: token.color
-    };
+    const balance = rawBalance ? Number(formatUnits(BigInt(String(rawBalance)), 18)) : 0;
+      return {
+        name: token.symbol,
+        value: balance,
+        color: token.color
+      };
   });
 
   // 3. 총 자산 가치
