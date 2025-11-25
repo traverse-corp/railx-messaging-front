@@ -19,6 +19,10 @@ export interface KycData {
 }
 
 export interface UserSettings {
-  reportJurisdiction: 'KR' | 'US' | 'HK'; // 신고 관할
-  accountingStandard: 'K-IFRS' | 'IFRS' | 'US-GAAP'; // 회계 기준
+  reportJurisdiction: 'KR' | 'US' | 'HK' | 'SG'; // 싱가포르 추가
+  accountingStandard: 'K-IFRS' | 'IFRS' | 'US-GAAP' | 'SFRS'; // SFRS(싱가포르) 추가
+  baseCurrency: 'KRW' | 'USD' | 'HKD' | 'SGD'; // 기준 통화
+  fiscalYearEnd?: string; // 회계연도 종료일 (법인용, MM-DD)
+  includeTaxReports: boolean; // 세무 리포트 자동 생성 여부
+  includeFxReports: boolean; // 외환 리포트 자동 생성 여부
 }

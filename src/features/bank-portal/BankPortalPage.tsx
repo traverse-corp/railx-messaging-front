@@ -32,7 +32,7 @@ export function BankPortalPage() {
         <Container maxW="container.xl">
           <Flex justify="space-between" align="center">
             <Heading as="h1" size="lg" letterSpacing="wider" color="white" cursor="pointer" onClick={() => navigate('/')}>
-              RailX <Text as="span" fontSize="sm" color="railx.accent" fontWeight="normal">V2</Text>
+              RailX <Text as="span" fontSize="sm" color="railx.accent" fontWeight="normal">SAFESEND</Text>
             </Heading>
 
             <Box>

@@ -99,10 +99,8 @@ export function LandingPage() {
           >
             RailX
           </Heading>
-
           <Text fontSize="xl" color="gray.400" maxW="xl" textAlign="center">
-            The most Compliant Onchain FX Protocol.<br />
-            Seamless cross-border settlement for institutional finance.
+            The Fastest, Safest and most Compliant Stablecoin FX Protocol.<br />
           </Text>
 
           <Button

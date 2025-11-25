@@ -1,4 +1,4 @@
-export type Currency = 'USDC' | 'USDT' | 'DAI';
+export type Currency = 'USDC' | 'USDT' | 'RLUSD';
 
 export type TxPurposeCategory = 
   | 'GOODS_EXPORT_IMPORT'
@@ -6,13 +6,20 @@ export type TxPurposeCategory =
   | 'CAPITAL_TRANSFER'
   | 'INDIVIDUAL_REMITTANCE';
 
+// [추가] 컴플라이언스 검증 로그 구조
+export interface ComplianceLog {
+  step: 'KYC' | 'KYT' | 'SOURCE_OF_FUNDS';
+  status: 'PASS' | 'FAIL' | 'WARNING';
+  timestamp: string;
+  details: string; // 예: "Clear (TranSight DB v2.4)"
+}
+
 export interface TransactionMetadata {
   // 1. 기본 트랜잭션 정보
   token: Currency;
   amount: string;
   senderAddress: string;
-  timestamp: string;
-  
+  timestamp: string;  
   // 🔥 [수정] 여기서 한 번만 정의합니다 (필수 값)
   recipientAddress: string; 
 
@@ -34,5 +41,14 @@ export interface TransactionMetadata {
     us_income_code?: string;
     invoice_number?: string;
     contract_date?: string;
+  };
+
+  complianceAudit?: {
+    senderChecked: boolean;
+    senderCheckTime: string;
+    logs: ComplianceLog[];
+    riskScore: number; // 0 (Safe) ~ 100 (Risky)
+    recipientChecked?: boolean; // 수신자가 나중에 채울 필드
+    recipientCheckTime?: string;
   };
 }
