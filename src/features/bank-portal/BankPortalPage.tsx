@@ -1,7 +1,8 @@
 import React from "react";
 import { 
   Container, Heading, Tabs, TabList, Tab, TabPanels, TabPanel, 
-  Text, Box, Flex, Button, HStack, Badge, Menu, MenuButton, MenuList, MenuItem
+  Text, Box, Flex, Button, HStack, Badge, Menu, MenuButton, MenuList, MenuItem,
+  useToast // 👈 토스트 메시지 사용을 위해 추가
 } from '@chakra-ui/react';
 import { ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
 import { useAccount, useConnect, useDisconnect } from "wagmi";
@@ -10,8 +11,6 @@ import { useNavigate } from "react-router-dom";
 
 // V2용 컴포넌트 Import
 import { SendWizard } from "../send/SendWizard";
-import { OnboardingPage } from '../onboarding/OnboardingPage'; // 👈 이 파일이 import 되어야 합니다.
-
 import { ReceiveDashboard } from "../receive/ReceiveDashboard";
 // 아래 두 개는 기존 V1 코드를 그대로 쓰거나, 없으면 아래 2, 3번 코드로 생성하세요.
 import { VaultPanel } from "./VaultPanel";
@@ -22,8 +21,37 @@ export function BankPortalPage() {
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   const navigate = useNavigate();
+  const toast = useToast(); // 👈 안내 메시지용
 
   const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
+
+  // 👇 [추가된 함수] 모바일 딥링크 처리 + Wagmi 연결 래퍼 함수
+  const handleWalletConnect = () => {
+    // 1. 모바일 기기인지 체크
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    // 2. 모바일이면서 + 브라우저에 지갑(window.ethereum)이 없는 경우
+    //    (즉, 메타마스크 앱 내부 브라우저가 아니라 일반 모바일 크롬/사파리인 경우)
+    if (isMobile && !window.ethereum) {
+      toast({
+        title: "Opening MetaMask...",
+        description: "Redirecting to MetaMask App.",
+        status: "info",
+        duration: 2000,
+        isClosable: true,
+      });
+
+      // 현재 페이지 주소 (https:// 제외하고 깔끔하게)
+      const currentUrl = window.location.host + window.location.pathname;
+      
+      // 딥링크 실행 (메타마스크 앱 열기)
+      window.location.href = `https://metamask.app.link/dapp/${currentUrl}`;
+      return;
+    }
+
+    // 3. 그 외 (PC 또는 메타마스크 앱 내부 브라우저) -> 기존 Wagmi 연결 실행
+    connect({ connector: injected() });
+  };
 
   return (
     <Box minH="100vh" bg="railx.900">
@@ -39,7 +67,8 @@ export function BankPortalPage() {
               {!isConnected ? (
                 <Button 
                   size="sm" variant="primary" 
-                  onClick={() => connect({ connector: injected() })}
+                  // 👇 [수정됨] 기존 직접 호출에서 -> handleWalletConnect 함수 호출로 변경
+                  onClick={handleWalletConnect}
                   boxShadow="0 0 15px rgba(201, 176, 55, 0.2)"
                 >
                   Connect Wallet
