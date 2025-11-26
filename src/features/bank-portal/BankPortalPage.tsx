@@ -52,7 +52,7 @@ export function BankPortalPage() {
                   
                   {/* 온보딩(키 설정) 페이지로 이동하는 버튼 */}
                   <Button size="sm" leftIcon={<SettingsIcon />} variant="outline" onClick={() => navigate('/onboarding')}>
-                    Keys
+                    User Keys
                   </Button>
 
                   <Menu>
@@ -78,7 +78,7 @@ export function BankPortalPage() {
           <TabList mb={8} bg="railx.800" p={1} borderRadius="xl" border="1px" borderColor="railx.700">
             <Tab>Send (Compliance)</Tab>
             <Tab>Inbox (Receive)</Tab>
-            <Tab>Vault</Tab>
+            {/* <Tab>Vault</Tab> */}
             <Tab>My Wallet</Tab>
           </TabList>
 
@@ -89,8 +89,8 @@ export function BankPortalPage() {
             {/* 2. 수신 및 복호화 대시보드 */}
             <TabPanel p={0}><ReceiveDashboard /></TabPanel>
             
-            {/* 3. 볼트 (기존 유지) */}
-            <TabPanel p={0}><VaultPanel /></TabPanel>
+            {/* 3. 볼트 (기존 유지)
+            <TabPanel p={0}><VaultPanel /></TabPanel> */}
             
             {/* 4. 내 지갑 (기존 유지) */}
             <TabPanel p={0}><MyWalletPanel /></TabPanel>

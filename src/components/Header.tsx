@@ -55,7 +55,7 @@ export function Header() {
       borderColor="gray.700"
     >
       <Text fontSize="lg" fontWeight="bold">
-        RailX Messaging
+        RailX Safesend
       </Text>
       <Spacer />
       <Box>

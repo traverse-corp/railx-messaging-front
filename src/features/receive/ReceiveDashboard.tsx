@@ -128,7 +128,7 @@ export function ReceiveDashboard() {
       {!myPrivateKey && (
         <Alert status="warning" mb={4} borderRadius="md">
           <AlertIcon />
-          <Text mr={4}>메시지가 암호화되어 있습니다.</Text>
+          <Text mr={4}>컴플라이언스 메시지가 암호화되어 있습니다.</Text>
           <Button size="sm" colorScheme="orange" onClick={unlockKeys}>잠금 해제 (서명)</Button>
         </Alert>
       )}

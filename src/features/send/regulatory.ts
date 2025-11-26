@@ -1,5 +1,19 @@
-// 한국은행 지급사유코드 (Balance of Payment) 매핑 예시
-export const KR_BOP_CODES = [
+// regulatory.ts 등
+
+import type { TxPurposeCategory } from './types';
+
+export interface KrBopCode {
+  code: string;
+  label: string;        // 셀렉트에 노출할 한국어 라벨
+  category: TxPurposeCategory;
+  description?: string; // 선택 시 툴팁 등으로 써도 됨
+}
+
+/**
+ * 실무 자주 사용 영역 중심으로 정리한 축약 BOP 코드 테이블.
+ * 실제 신고 시에는 각 은행/한국은행 최신 코드표와 매핑해서 사용해야 함.
+ */
+export const KR_BOP_CODES: KrBopCode[] = [
   // 1) 개인 송금 (INDIVIDUAL_REMITTANCE)
   {
     code: '101',
@@ -137,8 +151,29 @@ export const KR_BOP_CODES = [
   }
 ];
 
-// 미국 소득 유형 (1042-S 등)
-export const US_INCOME_TYPES = [
+// regulatory.ts 등
+
+export type UsIncomeGroup =
+  | 'PASSIVE'        // 이자·배당 등 포트폴리오 FDAP
+  | 'ROYALTY'        // 로열티성
+  | 'SERVICE'        // 인적용역·급여 등
+  | 'SCHOLARSHIP'    // 장학금·연구비
+  | 'PENSION'        // 연금·퇴직 등
+  | 'REAL_PROPERTY'  // 부동산 임대 등
+  | 'OTHER';         // 그 외
+
+export interface UsIncomeType {
+  code: string;       // 1042-S Box 1 Income Code (예: '01', '06', '16' 등)
+  label: string;      // UI용 라벨 (한국어+간단한 영문)
+  group: UsIncomeGroup;
+  description?: string;
+}
+
+/**
+ * 1042-S Appendix A Income Code를 실무에서 자주 쓰는 항목 위주로 정리한 테이블.
+ * 세무보고 시엔 IRS 원문 코드표를 반드시 함께 참조할 것.
+ */
+export const US_INCOME_TYPES: UsIncomeType[] = [
   // 1) 이자·배당 등 PASSIVE 소득
   {
     code: '01',
@@ -308,12 +343,4 @@ export const US_INCOME_TYPES = [
     group: 'OTHER',
     description: '분쟁 조정·합의와 관련된 지급'
   }
-];
-
-// 거래 관계
-export const RELATIONSHIPS = [
-  { value: 'UNRELATED', label: '제3자 (Unrelated Party)' },
-  { value: 'SUBSIDIARY', label: '자회사 (Subsidiary)' },
-  { value: 'PARENT', label: '모회사 (Parent Company)' },
-  { value: 'FAMILY', label: '가족/친족 (Family)' },
 ];

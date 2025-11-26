@@ -1,5 +1,34 @@
 export type Currency = 'USDC' | 'USDT' | 'RLUSD';
 
+export interface TxPurposeOption {
+  value: TxPurposeCategory;
+  label: string;
+  description: string;
+}
+
+export const TX_PURPOSE_OPTIONS: TxPurposeOption[] = [
+  {
+    value: 'GOODS_EXPORT_IMPORT',
+    label: '재화 수출입 대금',
+    description: '완제품·원자재 수출입, 무역대금, 통관 수입·수출 대금 등'
+  },
+  {
+    value: 'SERVICE_TRADE',
+    label: '용역·서비스 거래',
+    description: '컨설팅·IT/SaaS·마케팅·교육·로열티 등 서비스 수수료'
+  },
+  {
+    value: 'CAPITAL_TRANSFER',
+    label: '자본거래 (투자·대출·지분 등)',
+    description: '해외 증권·펀드·부동산 투자, 해외법인 대여금·증자 등'
+  },
+  {
+    value: 'INDIVIDUAL_REMITTANCE',
+    label: '개인 송금 (생활비·증여·연금 등)',
+    description: '학비·생활비·연금·급여·증여·여행/의료비 등 개인 목적'
+  }
+];
+
 export type TxPurposeCategory = 
   | 'GOODS_EXPORT_IMPORT'
   | 'SERVICE_TRADE'

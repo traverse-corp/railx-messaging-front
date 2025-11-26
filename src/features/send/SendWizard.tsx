@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   Box, Button, Input, VStack, Select, useToast, Heading, Text, 
   Card, CardBody, SimpleGrid, FormControl, FormLabel, Divider,
-  HStack, Radio, RadioGroup, Stack, Textarea, Circle, Icon
+  HStack, Radio, RadioGroup, Stack, Textarea, Circle, Icon, Tooltip
 } from '@chakra-ui/react';
 import { useAccount, useWriteContract } from 'wagmi';
 import { parseUnits } from 'viem';
@@ -16,6 +16,9 @@ import { MockERC20Abi } from '../../shared/abi/MockERC20';
 import { KR_BOP_CODES, US_INCOME_TYPES, RELATIONSHIPS } from '../../utils/complianceConstants';
 import type { ComplianceLog } from './types';
 import type { TransactionMetadata } from './types';
+import type { TxPurposeOption } from './types';
+import type { TxPurposeCategory } from './types';
+import { TX_PURPOSE_OPTIONS } from './types';
 
 import { ComplianceScanModal } from '../../components/ComplianceScanModal';
 
@@ -309,18 +312,40 @@ export function SendWizard() {
 
   const renderStep3 = () => (
     <VStack spacing={4} align="stretch">
-      <Heading size="sm" color="railx.accent">규제 데이터</Heading>
+      <HStack spacing={2} align="center">
+        <Heading size="sm" color="railx.accent">
+          거래 증빙 데이터
+        </Heading>
+        <Tooltip
+          label="본 거래 증빙 데이터는 프라이버시 보호 메세징(ZK-E2EE)으로 송신자와 수취인만 복호화 가능하며 양측 거래 증빙에 활용됩니다."
+          hasArrow
+          placement="right"
+        >
+          <Circle
+            size="18px"
+            borderWidth="1px"
+            borderColor="railx.accent"
+            bg="railx.800"
+            color="railx.accent"
+            fontSize="xs"
+            cursor="default"
+          >
+            ?
+          </Circle>
+        </Tooltip>
+      </HStack>
       <FormControl isRequired>
         <FormLabel>거래 목적 (Category)</FormLabel>
-        <Select 
-          value={formData.purposeCategory} 
-          onChange={(e) => handleChange('purposeCategory', e.target.value)}
+        <Select
+          value={formData.purposeCategory}
+          onChange={(e) => handleChange('purposeCategory', e.target.value as TxPurposeCategory)}
           bg="railx.800"
         >
-          <option value="SERVICE_TRADE">용역/서비스 대금</option>
-          <option value="GOODS_EXPORT_IMPORT">수출입 대금</option>
-          <option value="CAPITAL_TRANSFER">투자/대출</option>
-          <option value="INDIVIDUAL_REMITTANCE">개인 송금</option>
+          {TX_PURPOSE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
         </Select>
       </FormControl>
 
@@ -416,7 +441,9 @@ export function SendWizard() {
           isOpen={isScanning} 
           onClose={() => setIsScanning(false)}
           onComplete={handleScanComplete}
-          targetAddress={formData.recipientAddress} 
+          targetAddress={formData.recipientAddress}
+          // 🔥 이 부분이 빠져있거나, nameState 변수에 값이 없는지 확인하세요!
+          recipientName={formData.recipientName}
           type="SENDER"
         />
       </CardBody>
