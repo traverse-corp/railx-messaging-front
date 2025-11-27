@@ -1,50 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Box, Button, Heading, Text, VStack, Code, useToast, Alert, AlertIcon,
-  useDisclosure, HStack, Divider, Badge, Icon // 👈 누락되었던 컴포넌트 추가
+  useDisclosure, HStack, Divider, Badge, Icon, SimpleGrid, Card, CardBody
 } from '@chakra-ui/react';
-import { useAccount, usePublicClient, useSignMessage } from 'wagmi';
-import { parseAbiItem } from 'viem';
+import { useAccount, usePublicClient, useSignMessage, useWriteContract } from 'wagmi';
+import { parseAbiItem, parseUnits } from 'viem';
 import { createClient } from '@supabase/supabase-js';
+import { FaCheckCircle, FaLock, FaShieldAlt, FaExchangeAlt, FaArrowRight, FaFileSignature } from 'react-icons/fa';
+
 import { deriveKeyFromSignature, unlockPrivateKey, decryptDataPacket } from '../../utils/crypto';
 import { RAILX_SIGNING_MESSAGE } from '../../utils/constants';
 import { ReportExportModal } from './ReportExportModal';
-import { ComplianceScanModal } from '../../components/ComplianceScanModal'; // 추가
-import { FaCheckCircle, FaLock, FaShieldAlt } from 'react-icons/fa'; // 아이콘 추가
+import { ComplianceScanModal } from '../../components/ComplianceScanModal';
+import { RailXVaultAbi } from '../../shared/abi/RailXVault';
+import { MockERC20Abi } from '../../shared/abi/MockERC20';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+const TOKEN_MAP: Record<string, `0x${string}`> = {
+  USDC: import.meta.env.VITE_USDC_ADDRESS as `0x${string}`,
+  USDT: import.meta.env.VITE_USDT_ADDRESS as `0x${string}`,
+  RLUSD: import.meta.env.VITE_RLUSD_ADDRESS as `0x${string}`,
+  KRWK: import.meta.env.VITE_KRWK_ADDRESS as `0x${string}`,
+  JPYC: import.meta.env.VITE_JPYC_ADDRESS as `0x${string}`,
+  XSGD: import.meta.env.VITE_XSGD_ADDRESS as `0x${string}`,
+};
+
 export function ReceiveDashboard() {
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const toast = useToast();
   
-  // 모달 제어 훅
   const { isOpen, onOpen, onClose } = useDisclosure();
+
+  const [myPrivateKey, setMyPrivateKey] = useState<CryptoKey | null>(null);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [nftLogs, setNftLogs] = useState<any[]>([]);
+  const [decryptedContent, setDecryptedContent] = useState<any>(null);
+  
   const [isVerifying, setIsVerifying] = useState(false);
   const [pendingUri, setPendingUri] = useState<string | null>(null);
-  const [myPrivateKey, setMyPrivateKey] = useState<CryptoKey | null>(null);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [decryptedContent, setDecryptedContent] = useState<any>(null);
+  
+  // 🔥 데이터를 확실하게 잡기 위해 useRef 사용
+  const activeRequestRef = useRef<any>(null);
 
-  // 1. 키 잠금 해제 (로그인)
+  // 1. 키 잠금 해제
   const unlockKeys = async () => {
     if (!address) return;
     try {
       const targetAddress = address.toLowerCase();
-      const { data } = await supabase
-        .from('profiles')
-        .select('encrypted_rsa_private_key')
-        .eq('wallet_address', targetAddress)
-        .single();
-
-      if (!data) {
-        return toast({ status: 'warning', title: '온보딩 필요', description: '먼저 키를 생성해주세요.' });
-      }
+      const { data } = await supabase.from('profiles').select('encrypted_rsa_private_key').eq('wallet_address', targetAddress).single();
+      if (!data) return toast({ status: 'warning', title: 'Identity Not Found', description: 'Please complete onboarding first.' });
 
       const message = `${RAILX_SIGNING_MESSAGE}${targetAddress}`;
       const sig = await signMessageAsync({ message });
@@ -52,173 +63,292 @@ export function ReceiveDashboard() {
       const privKey = await unlockPrivateKey(data.encrypted_rsa_private_key, derivedKey);
       
       setMyPrivateKey(privKey);
-      toast({ status: 'success', title: '잠금 해제 완료', description: '이제 내용을 볼 수 있습니다.' });
+      toast({ status: 'success', title: 'Unlocked Successfully', description: 'Secure vault access granted.' });
     } catch (e: any) {
-      toast({ status: 'error', title: '해제 실패', description: e.message });
+      toast({ status: 'error', title: 'Unlock Failed', description: e.message });
     }
   };
 
-  // 2. NFT 조회
+  // 2. 데이터 조회
   useEffect(() => {
-    if (!address || !publicClient) return;
-    const fetchLogs = async () => {
-      try {
-        const blockNumber = await publicClient.getBlockNumber();
-        const fromBlock = blockNumber - 5000n > 0n ? blockNumber - 5000n : 0n;
+    if (!address) return;
 
-        const events = await publicClient.getLogs({
-          address: import.meta.env.VITE_RAILX_NFT_ADDRESS as `0x${string}`,
-          event: parseAbiItem('event ComplianceRecordMinted(uint256 indexed tokenId, address indexed sender, address indexed receiver, string relatedTxHash, string metadataUri)'),
-          args: { receiver: address },
-          fromBlock: fromBlock,
-          toBlock: 'latest'
-        });
-        setLogs(events);
-      } catch (e) {
-        console.error("Logs error:", e);
+    const fetchData = async () => {
+      const targetAddr = address.toLowerCase();
+
+      // (A) DB Requests (Pending Swap) - 내가 수신자인 대기 건
+      const { data: dbRequests } = await supabase
+        .from('trade_requests')
+        .select('*')
+        .eq('recipient_address', targetAddr)
+        .eq('status', 'WAITING_RECIPIENT')
+        .order('created_at', { ascending: false });
+
+      if (dbRequests) setRequests(dbRequests);
+
+      // (B) Chain Logs (Completed / Direct)
+      if (publicClient) {
+        try {
+          const blockNumber = await publicClient.getBlockNumber();
+          const fromBlock = blockNumber - 5000n > 0n ? blockNumber - 5000n : 0n;
+          const events = await publicClient.getLogs({
+            address: import.meta.env.VITE_RAILX_NFT_ADDRESS as `0x${string}`,
+            event: parseAbiItem('event ComplianceRecordMinted(uint256 indexed tokenId, address indexed sender, address indexed receiver, string relatedTxHash, string metadataUri)'),
+            args: { receiver: address },
+            fromBlock: fromBlock,
+            toBlock: 'latest'
+          });
+          setNftLogs(events);
+        } catch (e) { console.error(e); }
       }
     };
-    fetchLogs();
+
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, [address, publicClient]);
 
-  // 🔥 [추가] "리포트 보기" 버튼 클릭 시 -> 바로 복호화하지 않고 검증부터
-  const onReportClick = (uri: string) => {
-    if (!myPrivateKey) {
-      return toast({ status: 'error', title: '키 잠김', description: '먼저 잠금 해제 버튼을 눌러주세요.' });
-    }
-    setPendingUri(uri); 
-    setIsVerifying(true); // 1. 검증 모달 오픈
+  // 3. 리포트 보기 클릭
+  const onReportClick = (uri: string, requestData?: any) => {
+    if (!myPrivateKey) return toast({ status: 'error', title: 'Vault Locked', description: 'Please unlock your keys first.' });
+    
+    setPendingUri(uri);
+    // 🔥 클릭한 요청 데이터를 Ref에 저장 (버튼 표시 여부 결정용)
+    activeRequestRef.current = requestData; 
+    setIsVerifying(true);
   };
 
-  // 🔥 [추가] 검증 완료 후 실행되는 함수
   const handleVerifyComplete = async (logs: any[]) => {
     setIsVerifying(false);
-    if (pendingUri) {
-      await decryptMessage(pendingUri, logs); // 2. 검증 로그를 넘기며 복호화
-    }
+    if (pendingUri) await decryptMessage(pendingUri, logs);
   };
 
-  // 3. 개별 메시지 복호화
+  // 4. 복호화
   const decryptMessage = async (uri: string, recipientLogs?: any[]) => {
-    if (!myPrivateKey) return toast({ status: 'error', title: '키 잠김', description: '먼저 잠금 해제 버튼을 눌러주세요.' });
     try {
       const res = await fetch(uri);
-      if (!res.ok) throw new Error("파일을 찾을 수 없습니다 (404).");
+      if (!res.ok) throw new Error("Data not found (404).");
       
       const packet = await res.json();
-      const content = await decryptDataPacket(packet, myPrivateKey);
-
-      // 🔥 수신자 검증 결과도 데이터에 병합하여 보여주기 (UI용)
+      const content = await decryptDataPacket(packet, myPrivateKey!);
+      
       if (recipientLogs && content.complianceAudit) {
         content.complianceAudit.recipientChecked = true;
         content.complianceAudit.recipientCheckTime = new Date().toISOString();
         content.complianceAudit.logs.push(...recipientLogs);
       }
+      
+      // Ref에 저장된 요청 ID를 콘텐츠에 병합
+      if (activeRequestRef.current) {
+        content._dbId = activeRequestRef.current.id;
+        content._matchedLP = activeRequestRef.current.lp_address;
+      }
+
       setDecryptedContent(content);
     } catch (e: any) {
       console.error(e);
-      toast({ status: 'error', title: '복호화 실패', description: e.message });
+      toast({ status: 'error', title: 'Decryption Failed', description: e.message });
+    }
+  };
+
+  // 5. 실행 (Execute)
+  const handleExecuteSwap = async () => {
+    if (!decryptedContent || !address) return;
+    
+    // Ref에서 데이터 가져오기
+    const req = activeRequestRef.current; 
+    if (!req) return toast({ status: "error", title: "Request data missing" });
+
+    const vaultAddress = import.meta.env.VITE_RAILX_VAULT_ADDRESS as `0x${string}`;
+    const tokenInAddr = TOKEN_MAP[req.from_token];
+    const tokenOutAddr = TOKEN_MAP[req.to_token];
+    
+    // 금액 계산
+    const amountIn = parseUnits(String(req.from_amount), 18);
+    const amountOut = parseUnits(String(req.to_amount), 18);
+    
+    // Trade ID 생성
+    const randomBytes = new Uint8Array(32);
+    window.crypto.getRandomValues(randomBytes);
+    const tradeId = `0x${Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
+
+    try {
+      toast({ title: "Executing Atomic Swap...", description: "Sending transaction to Vault.", status: "info" });
+      
+      await writeContractAsync({
+        address: vaultAddress,
+        abi: RailXVaultAbi,
+        functionName: 'executeMarketSwap',
+        args: [
+          tradeId,
+          req.sender_address as `0x${string}`, // Sender
+          address as `0x${string}`,            // Recipient (Me)
+          req.lp_address as `0x${string}`,     // LP
+          tokenInAddr,
+          tokenOutAddr,
+          amountIn,
+          amountOut
+        ]
+      });
+
+      toast({ status: "success", title: "Swap Executed!", description: "Funds settled successfully." });
+
+      // DB 업데이트
+      await supabase.from('trade_requests').update({ status: 'EXECUTED' }).eq('id', req.id);
+      
+      // 화면 갱신
+      setRequests(prev => prev.filter(r => r.id !== req.id));
+      setDecryptedContent(null);
+      activeRequestRef.current = null;
+
+    } catch (e: any) {
+      console.error(e);
+      toast({ status: "error", title: "Execution Failed", description: e.message });
     }
   };
 
   return (
     <Box color="white">
-      <Heading mb={6}>Inbox</Heading>
+      <Heading mb={6} size="lg">Compliance Inbox</Heading>
       
       {!myPrivateKey && (
-        <Alert status="warning" mb={4} borderRadius="md">
-          <AlertIcon />
-          <Text mr={4}>컴플라이언스 메시지가 암호화되어 있습니다.</Text>
-          <Button size="sm" colorScheme="orange" onClick={unlockKeys}>잠금 해제 (서명)</Button>
+        <Alert status="warning" mb={6} borderRadius="lg" variant="solid" bg="railx.accent" color="black">
+          <AlertIcon color="black" />
+          <Box>
+            <Text fontWeight="bold">Secure Vault Locked</Text>
+            <Text fontSize="sm">Please sign with your wallet to unlock encrypted messages.</Text>
+          </Box>
+          <Button size="sm" ml="auto" colorScheme="blackAlpha" onClick={unlockKeys}>Unlock Now</Button>
         </Alert>
       )}
 
-      <VStack align="stretch" spacing={4}>
-        {logs.map((log: any) => (
-          <Box key={log.transactionHash} p={5} bg="railx.800" borderRadius="xl" border="1px solid" borderColor="railx.700" _hover={{ borderColor: 'railx.accent' }} transition="all 0.2s">
-            <HStack justify="space-between" mb={3}>
-              <VStack align="start" spacing={0}>
-                <Text fontSize="xs" color="gray.500">SENDER</Text>
-                <Text fontWeight="bold" fontFamily="monospace">{log.args.sender}</Text>
-              </VStack>
-              <VStack align="end" spacing={0}>
-                <Text fontSize="xs" color="gray.500">TX HASH</Text>
-                <Text fontSize="xs" fontFamily="monospace" color="railx.accent">{log.args.relatedTxHash.slice(0,10)}...</Text>
-              </VStack>
+      <VStack align="stretch" spacing={6}>
+        
+        {/* 1. ACTION REQUIRED (Pending) */}
+        {requests.length > 0 && (
+          <Box>
+            <HStack mb={3}>
+              <Icon as={FaFileSignature} color="yellow.400" />
+              <Text fontSize="sm" fontWeight="bold" color="yellow.400" letterSpacing="wider">ACTION REQUIRED ({requests.length})</Text>
             </HStack>
-            <Divider borderColor="whiteAlpha.100" my={3} />
+            <VStack align="stretch" spacing={4}>
+              {requests.map((req) => (
+                <Card key={req.id} bg="railx.800" border="1px solid" borderColor="yellow.500" boxShadow="0 0 15px rgba(255, 215, 0, 0.1)">
+                  <CardBody>
+                    <HStack justify="space-between" mb={4}>
+                      <VStack align="start" spacing={0}>
+                        <Text fontSize="xs" color="gray.400">SENDER</Text>
+                        <Text fontWeight="bold" fontFamily="monospace">{req.sender_address}</Text>
+                      </VStack>
+                      <Badge colorScheme="yellow" variant="solid" px={3} py={1} borderRadius="full">WAITING APPROVAL</Badge>
+                    </HStack>
 
-            {/* 🔥 [Feature 2] 태그/배지 표시 영역 */}
-            <HStack spacing={2} mb={4} wrap="wrap">
-              <Badge colorScheme="green" variant="subtle" px={2} py={1} borderRadius="md">
-                <HStack spacing={1}><Icon as={FaCheckCircle} /> <Text>KYC AML</Text></HStack>
-              </Badge>
-              <Badge colorScheme="green" variant="subtle" px={2} py={1} borderRadius="md">
-                <HStack spacing={1}><Icon as={FaCheckCircle} /> <Text>KYT AML</Text></HStack>
-              </Badge>
-              <Badge colorScheme="blue" variant="subtle" px={2} py={1} borderRadius="md">
-                <Text>1/2 Processed (Sender)</Text>
-              </Badge>
-              <Text fontSize="xs" color="gray.500">
-                {new Date().toLocaleDateString()} Verified
-              </Text>
-            </HStack>
+                    <HStack justify="space-between" bg="blackAlpha.400" p={4} borderRadius="md" mb={4}>
+                       <VStack align="start" spacing={0}>
+                         <Text fontSize="xs" color="gray.500">INCOMING</Text>
+                         <Text fontWeight="bold" fontSize="lg">{Number(req.to_amount).toLocaleString()} {req.to_token}</Text>
+                       </VStack>
+                       <Icon as={FaArrowRight} color="gray.600" />
+                       <VStack align="end" spacing={0}>
+                         <Text fontSize="xs" color="gray.500">SOURCE</Text>
+                         <Text fontWeight="bold" color="gray.300">{Number(req.from_amount).toLocaleString()} {req.from_token}</Text>
+                       </VStack>
+                    </HStack>
 
-            {/* 🔥 [Feature 3] 잠금 버튼 */}
-            <Button 
-              size="sm" w="full" 
-              leftIcon={<FaLock />} 
-              colorScheme="gray" 
-              variant="outline"
-              _hover={{ bg: 'whiteAlpha.100', color: 'railx.accent', borderColor: 'railx.accent' }}
-              onClick={() => onReportClick(log.args.metadataUri)}
-            >
-              Verify & Unlock Report (2/2)
-            </Button>
+                    <Button 
+                      w="full" colorScheme="yellow" leftIcon={<FaLock />} 
+                      onClick={() => onReportClick(req.encrypted_compliance_data, req)}
+                    >
+                      Verify Compliance & Unlock
+                    </Button>
+                  </CardBody>
+                </Card>
+              ))}
+            </VStack>
           </Box>
-        ))}
+        )}
+
+        <Divider borderColor="railx.700" />
+
+        {/* 2. COMPLETED (History) */}
+        <Box>
+          <Text fontSize="sm" fontWeight="bold" color="gray.500" mb={3} letterSpacing="wider">HISTORY ({nftLogs.length})</Text>
+          <VStack align="stretch" spacing={3}>
+            {nftLogs.map((log: any) => (
+              <Card key={log.transactionHash} bg="railx.800" border="1px solid" borderColor="railx.700" _hover={{ borderColor: 'railx.accent' }}>
+                <CardBody py={4}>
+                  <HStack justify="space-between">
+                    <HStack>
+                       <Icon as={FaCheckCircle} color="green.400" />
+                       <Text fontWeight="bold" fontSize="sm">Settled</Text>
+                       <Text fontSize="xs" color="gray.500" fontFamily="monospace">| Tx: {log.args.relatedTxHash.slice(0,10)}...</Text>
+                    </HStack>
+                    <Button size="sm" variant="ghost" leftIcon={<FaShieldAlt />} onClick={() => onReportClick(log.args.metadataUri)}>
+                      View Report
+                    </Button>
+                  </HStack>
+                </CardBody>
+              </Card>
+            ))}
+          </VStack>
+        </Box>
       </VStack>
 
+      {/* --- 리포트 뷰어 --- */}
       {decryptedContent && (
-        <Box mt={8} p={6} bg="gray.900" borderRadius="xl" border="1px solid" borderColor="railx.accent" position="relative" overflow="hidden">
-          {/* 워터마크 효과 */}
-          <Box position="absolute" top="-20px" right="-20px" opacity={0.1}>
-             <Icon as={FaShieldAlt} boxSize={40} />
-          </Box>
-          <Heading size="md" mb={1} color="white">Compliance Report</Heading>
-          <HStack mb={6}>
-             <Badge colorScheme="green">SENDER VERIFIED</Badge>
-             <Badge colorScheme="green">RECIPIENT VERIFIED</Badge>
-             <Text fontSize="xs" color="gray.500">ID: {decryptedContent.complianceAudit?.riskScore === 0 ? 'CLEAN_ASSET' : 'RISK'}</Text>
+        <Box mt={10} p={8} bg="gray.900" borderRadius="xl" border="1px solid" borderColor="railx.accent" position="relative" overflow="hidden" boxShadow="2xl">
+          <Box position="absolute" top="-30px" right="-30px" opacity={0.05}><Icon as={FaShieldAlt} boxSize={60} /></Box>
+          
+          <HStack justify="space-between" mb={6}>
+            <Heading size="md" color="white">Compliance Report</Heading>
+            <HStack>
+               <Badge colorScheme="green">KYC: PASS</Badge>
+               <Badge colorScheme="green">KYT: CLEAN</Badge>
+               <Badge colorScheme="green">SOF: VERIFIED</Badge>
+            </HStack>
           </HStack>
           
-          <Code display="block" whiteSpace="pre" p={4} borderRadius="md" mb={4} maxH="400px" overflowY="auto" bg="blackAlpha.600">
+          <SimpleGrid columns={2} spacing={6} mb={6} bg="whiteAlpha.50" p={5} borderRadius="lg">
+             <Box>
+               <Text fontSize="xs" color="gray.400" mb={1}>SENDER (Origin)</Text>
+               <Text fontWeight="bold" fontSize="xl">{decryptedContent.amount} {decryptedContent.fromToken}</Text>
+               <Text fontSize="sm" color="gray.400">{decryptedContent.senderAddress}</Text>
+             </Box>
+             <Box textAlign="right">
+               <Text fontSize="xs" color="gray.400" mb={1}>YOU RECEIVE</Text>
+               <Text fontWeight="bold" fontSize="xl" color="railx.accent">
+                 {/* DB에서 가져온 정확한 to_amount가 있다면 표시, 없으면 계산 */}
+                 {activeRequestRef.current ? Number(activeRequestRef.current.to_amount).toLocaleString() : "Unknown"} {decryptedContent.token}
+               </Text>
+               <Text fontSize="sm" color="gray.400">{decryptedContent.recipientAddress}</Text>
+             </Box>
+          </SimpleGrid>
+
+          <Code display="block" whiteSpace="pre" p={4} borderRadius="md" mb={8} maxH="200px" overflowY="auto" bg="blackAlpha.800" fontSize="xs">
             {JSON.stringify(decryptedContent, null, 2)}
           </Code>
-          
 
-          <HStack spacing={4}>
-            <Button colorScheme="gray" onClick={() => setDecryptedContent(null)}>
-              Close
-            </Button>
-            <Button colorScheme="yellow" onClick={onOpen}>
-              Generate Regulatory Report
-            </Button>
+          <HStack spacing={4} justify="flex-end">
+            <Button variant="ghost" onClick={() => setDecryptedContent(null)}>Close Viewer</Button>
+            
+            {/* 🔥 [핵심] DB 요청인 경우에만 실행 버튼 노출 */}
+            {activeRequestRef.current ? (
+              <Button 
+                colorScheme="green" size="lg" leftIcon={<FaExchangeAlt />} 
+                onClick={handleExecuteSwap}
+                boxShadow="0 0 20px rgba(72, 187, 120, 0.4)"
+              >
+                Approve & Execute Swap
+              </Button>
+            ) : (
+               <Button colorScheme="yellow" onClick={onOpen}>Generate Regulatory Report</Button>
+            )}
           </HStack>
         </Box>
       )}
 
-      <ReportExportModal 
-        isOpen={isOpen} 
-        onClose={onClose} 
-        decryptedData={decryptedContent} 
-      />
-
-      {/* 🔥 수신자용 스캔 모달 */}
-      <ComplianceScanModal 
-        isOpen={isVerifying} onClose={() => setIsVerifying(false)}
-        onComplete={handleVerifyComplete} targetAddress={address!} type="RECIPIENT"
-      />
+      <ReportExportModal isOpen={isOpen} onClose={onClose} decryptedData={decryptedContent} />
+      <ComplianceScanModal isOpen={isVerifying} onClose={()=>setIsVerifying(false)} onComplete={handleVerifyComplete} targetAddress={address!} type="RECIPIENT" />
     </Box>
   );
 }

@@ -59,7 +59,7 @@ export function ReportExportModal({ isOpen, onClose, decryptedData }: Props) {
 
     downloadCSV(`RailX_Report_${template.id}_${Date.now()}.csv`, headers, [orderedRow]);
     
-    toast({ title: 'Download Complete', status: 'success', duration: 2000 });
+    toast({ title: '다운로드 완료', status: 'success', duration: 2000 });
     onClose();
   };
 

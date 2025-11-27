@@ -174,62 +174,173 @@ export interface UsIncomeType {
  * 세무보고 시엔 IRS 원문 코드표를 반드시 함께 참조할 것.
  */
 export const US_INCOME_TYPES: UsIncomeType[] = [
-  // 1) Passive income – interest & dividends
+  // 1) 이자·배당 등 PASSIVE 소득
   {
     code: '01',
-    label: 'Interest income – General interest from U.S. obligors',
+    label: '이자소득 – 미국 내 채무기관 일반이자 (Interest – U.S. obligors)',
     group: 'PASSIVE',
-    description: 'Ordinary interest paid by U.S. corporations/financial institutions.'
+    description: '미국 법인/기관이 지급하는 일반 이자'
   },
   {
     code: '02',
-    label: 'Interest income – Real estate mortgage interest',
+    label: '이자소득 – 부동산 모기지 이자',
     group: 'PASSIVE',
-    description: 'Interest from U.S. real estate mortgage loans.'
+    description: '미국 부동산 담보대출 이자'
   },
   {
     code: '29',
-    label: 'Deposit interest',
+    label: '예금 이자 (Deposit interest)',
     group: 'PASSIVE',
-    description: 'Interest earned on deposits at U.S. financial institutions.'
+    description: '미국 금융기관 예금에서 발생하는 이자'
   },
   {
     code: '06',
-    label: 'Dividend income – Ordinary dividend from U.S. corporations',
+    label: '배당소득 – 미국 법인 일반 배당',
     group: 'PASSIVE',
-    description: 'Dividends paid from U.S. stocks or funds.'
+    description: '미국 주식/펀드에서 지급되는 배당'
   },
   {
     code: '07',
-    label: 'Dividend income – Qualified dividend under tax treaties',
+    label: '배당소득 – 조약상 우대배당 (Qualified dividend)',
     group: 'PASSIVE',
-    description: 'Dividends eligible for reduced treaty rates.'
+    description: '조세조약 요건을 충족하는 경우'
   },
   {
     code: '08',
-    label: 'Dividend income – Dividend from foreign corporation',
+    label: '배당소득 – 외국법인 배당 (Dividend from foreign corp.)',
     group: 'PASSIVE',
-    description: 'Foreign corporation dividend treated as U.S.-source dividend.'
+    description: '미국 소스 배당으로 분류되는 외국법인 배당'
   },
 
-  // 2) Royalty / IP related
+  // 2) 로열티·IP 관련
   {
     code: '10',
-    label: 'Industrial royalties',
+    label: '산업재산권 로열티 (Industrial royalties)',
     group: 'ROYALTY',
-    description: 'Royalties for patents, know-how and other industrial property.'
+    description: '특허·노하우 등 산업재산권 사용료'
   },
   {
     code: '11',
-    label: 'Film & media copyright royalties',
+    label: '영상·콘텐츠 저작권 로열티',
     group: 'ROYALTY',
-    description: 'Royalties for movies, TV programs and other media content.'
+    description: '영화·TV 프로그램 등의 저작권 사용료'
   },
   {
     code: '12',
-    label: 'Other copyright / software / branding royalties',
+    label: '기타 저작권·소프트웨어·브랜딩 로열티',
     group: 'ROYALTY',
-    description: 'Software, trademarks, likeness/publicity rights, advertising fees, etc.'
+    description: '소프트웨어, 상표권, 초상권·광고 모델료 등'
   },
-  // ... 이하 항목들도 같은 스타일로 label/description만 영어로 바꾸면 됨
+
+  // 3) 부동산·실물 관련
+  {
+    code: '14',
+    label: '부동산 임대·자원 로열티',
+    group: 'REAL_PROPERTY',
+    description: '부동산 임대료, 광물·천연자원 사용료 등'
+  },
+  {
+    code: '09',
+    label: '자본이득 (Capital gains)',
+    group: 'REAL_PROPERTY',
+    description: '자산 처분으로 발생한 미국 소스 양도차익'
+  },
+
+  // 4) 연금·퇴직
+  {
+    code: '15',
+    label: '연금·연금형 지급·보험 관련 수령액',
+    group: 'PENSION',
+    description: '연금, 연금형 보험, 일부 alimony 등'
+  },
+
+  // 5) 장학금·연구비
+  {
+    code: '16',
+    label: '장학금·펠로우십 (Scholarship/Fellowship)',
+    group: 'SCHOLARSHIP',
+    description: '학비·연구비 등 비과세/과세 장학금 모두 포함'
+  },
+
+  // 6) 인적용역·급여 (Service Income)
+  {
+    code: '17',
+    label: '독립 인적용역 대가 (Independent personal services)',
+    group: 'SERVICE',
+    description: '프리랜서, 컨설턴트 등의 용역대가'
+  },
+  {
+    code: '18',
+    label: '종속 인적용역 대가 (Dependent personal services)',
+    group: 'SERVICE',
+    description: '고용관계에 가까운 급여성 보수'
+  },
+  {
+    code: '19',
+    label: '교수·강의 활동 대가 (Compensation for teaching)',
+    group: 'SERVICE',
+    description: '강의·세미나·교육서비스 대가'
+  },
+  {
+    code: '20',
+    label: '연수·트레이닝 중 보수 (Compensation during training)',
+    group: 'SERVICE',
+    description: '연수·연구과정 중 지급되는 보수'
+  },
+  {
+    code: '42',
+    label: '아티스트·운동선수 소득 (일반)',
+    group: 'SERVICE',
+    description: '공연·경기 등 예술·스포츠 활동 소득'
+  },
+  {
+    code: '43',
+    label: '아티스트·운동선수 소득 (중앙 원천징수 계약 포함)',
+    group: 'SERVICE',
+    description: 'IRS와 별도 계약이 있는 경우'
+  },
+
+  // 7) 기타
+  {
+    code: '23',
+    label: '기타 FDAP 소득 (Other income)',
+    group: 'OTHER',
+    description: '다른 코드에 명시되지 않은 미국 소스 FDAP'
+  },
+  {
+    code: '28',
+    label: '겜블링 당첨금 (Gambling winnings)',
+    group: 'OTHER',
+    description: '카지노·복권 등 도박·게임 당첨금'
+  },
+  {
+    code: '35',
+    label: '대체 지급 – 기타 (Substitute payment – other)',
+    group: 'OTHER',
+    description: '증권 대차·스왑 등에서 발생하는 대체 지급'
+  },
+  {
+    code: '50',
+    label: '에스크로 절차 하에서 이전에 보고된 소득',
+    group: 'OTHER',
+    description: '이전 연도 에스크로 절차에 따라 이미 보고된 항목'
+  },
+  {
+    code: '59',
+    label: 'Consent fee (대출·채무 조건 변경 수수료 등)',
+    group: 'OTHER',
+    description: '채무 조건 변경 등과 관련된 수수료'
+  },
+  {
+    code: '60',
+    label: 'Loan syndication fee (대출 주선 수수료)',
+    group: 'OTHER',
+    description: '신디케이트론 주선 보수'
+  },
+  {
+    code: '61',
+    label: 'Settlement payment (합의금·분쟁 해결금 등)',
+    group: 'OTHER',
+    description: '분쟁 조정·합의와 관련된 지급'
+  }
 ];

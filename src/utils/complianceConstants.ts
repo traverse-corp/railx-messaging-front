@@ -1,319 +1,320 @@
-// 한국은행 지급사유코드 (Balance of Payment) 매핑 예시
+// Bank of Korea Balance of Payments (BOP) reason codes – example mapping
 export const KR_BOP_CODES = [
-  // 1) 개인 송금 (INDIVIDUAL_REMITTANCE)
+  // 1) Individual remittance (INDIVIDUAL_REMITTANCE)
   {
     code: '101',
-    label: '해외 학비 송금',
+    label: 'Overseas tuition remittance',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '등록금, 학교 납부금 등 교육비'
+    description: 'Tuition and other school-related education fees',
   },
   {
     code: '102',
-    label: '생활비·가족 부양 송금',
+    label: 'Living expenses / family support',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '유학생·가족 생활비, 생계비'
+    description: 'Living expenses and family support for students or dependents abroad',
   },
   {
     code: '103',
-    label: '유학·장기체재 숙박·생활비',
+    label: 'Long-term study / stay lodging & living costs',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '기숙사비, 렌트비, 기타 체재비'
+    description: 'Dormitory fees, rent and other long-term stay expenses',
   },
   {
     code: '302',
-    label: '연금·퇴직금·보험금 지급',
+    label: 'Pension / retirement / insurance payments',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '연금, 퇴직소득, 퇴직 위로금, 보험금'
+    description: 'Pension income, retirement benefits, severance payments and insurance payouts',
   },
   {
     code: '301',
-    label: '급여·노무 대가 지급 (개인)',
+    label: 'Salary / labor compensation (individual)',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '해외 거주 개인에게 지급하는 급여·프리랜서 노무비'
+    description: 'Salary and freelance service fees paid to individuals residing overseas',
   },
   {
     code: '501',
-    label: '여행경비 송금',
+    label: 'Travel expense remittance',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '출장/관광 경비, 체류비 등'
+    description: 'Business or leisure travel expenses, accommodation and other travel costs',
   },
   {
     code: '502',
-    label: '의료·치료비 송금',
+    label: 'Medical / treatment expenses',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '해외 병원·의료기관 비용'
+    description: 'Payments to overseas hospitals and medical institutions',
   },
   {
     code: '503',
-    label: '결혼·장례 등 행사 경비',
+    label: 'Event expenses (wedding / funeral, etc.)',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '해외 결혼식·장례식 관련 비용'
+    description: 'Costs related to overseas weddings, funerals and similar family events',
   },
   {
     code: '601',
-    label: '증여·상속 자금 송금',
+    label: 'Gifts / inheritance remittance',
     category: 'INDIVIDUAL_REMITTANCE',
-    description: '가족 간 증여, 상속 재산 이전 등'
+    description: 'Gifts between family members and inheritance transfers',
   },
 
-  // 2) 재화 수출입 (GOODS_EXPORT_IMPORT)
+  // 2) Goods export / import (GOODS_EXPORT_IMPORT)
   {
     code: '401',
-    label: '수입대금 결제 (재화 수입)',
+    label: 'Import payment (goods import)',
     category: 'GOODS_EXPORT_IMPORT',
-    description: '통관 수입대금, 중계무역 수입 등'
+    description: 'Customs-cleared import payments and intermediary trade imports',
   },
   {
     code: '40201',
-    label: '수출 대금 수령',
+    label: 'Export proceeds receipt',
     category: 'GOODS_EXPORT_IMPORT',
-    description: '재화 수출대금 영수, 무역대금 회수'
+    description: 'Receipt of export proceeds and settlement of trade receivables',
   },
 
-  // 3) 용역·서비스 거래 (SERVICE_TRADE)
+  // 3) Services & fees (SERVICE_TRADE)
   {
     code: '402',
-    label: '용역 대가·서비스 수수료',
+    label: 'Service fees / charges',
     category: 'SERVICE_TRADE',
-    description: '컨설팅, 마케팅, IT/SaaS, 유지보수, 교육서비스 등'
+    description: 'Consulting, marketing, IT/SaaS, maintenance, education services and similar fees',
   },
   {
     code: '403',
-    label: '로열티·라이선스 사용료',
+    label: 'Royalties / license fees',
     category: 'SERVICE_TRADE',
-    description: 'IP 라이선스, 저작권·상표권 사용료'
+    description: 'IP license fees, copyright and trademark royalties',
   },
   {
     code: '404',
-    label: '광고·프로모션 비용',
+    label: 'Advertising / promotion expenses',
     category: 'SERVICE_TRADE',
-    description: '해외 광고·온라인 마케팅 집행료'
+    description: 'Overseas advertising spend and online marketing costs',
   },
   {
     code: '405',
-    label: '전문서비스 수수료',
+    label: 'Professional service fees',
     category: 'SERVICE_TRADE',
-    description: '법률, 회계, 세무, 디자인, 엔지니어링 등 전문 용역'
+    description: 'Legal, accounting, tax, design, engineering and other professional services',
   },
 
-  // 4) 자본거래 (CAPITAL_TRANSFER)
+  // 4) Capital transactions (CAPITAL_TRANSFER)
   {
     code: '201',
-    label: '해외 금융투자 (주식·채권·펀드)',
+    label: 'Overseas financial investment (stocks / bonds / funds)',
     category: 'CAPITAL_TRANSFER',
-    description: '상장/비상장주식, 채권, 펀드 투자자금'
+    description: 'Investments in listed/unlisted shares, bonds and funds abroad',
   },
   {
     code: '202',
-    label: '해외 부동산 취득·투자',
+    label: 'Overseas real estate acquisition / investment',
     category: 'CAPITAL_TRANSFER',
-    description: '해외 부동산 매입, 개발자금'
+    description: 'Purchase or development of real estate located overseas',
   },
   {
     code: '203',
-    label: '해외법인 출자·증자',
+    label: 'Equity investment / capital injection in foreign entities',
     category: 'CAPITAL_TRANSFER',
-    description: '해외 자회사 설립·증자, 지분투자'
+    description: 'Establishment or capital increase of overseas subsidiaries and equity investments',
   },
   {
     code: '204',
-    label: '해외법인·개인에 대한 대출·금전대여',
+    label: 'Loans / lending to foreign entities or individuals',
     category: 'CAPITAL_TRANSFER',
-    description: '대출원금 실행, 중·장기 금전대여'
+    description: 'Execution of loan principals and mid-/long-term lending to overseas borrowers',
   },
   {
     code: '205',
-    label: '해외투자 회수·원리금 상환',
+    label: 'Recovery of overseas investments / principal & interest repayment',
     category: 'CAPITAL_TRANSFER',
-    description: '투자 회수금, 대출원금·이자 상환'
+    description: 'Recovery of investment principal and repayment of loan principal and interest',
   },
 
-  // 5) 기타 (카테고리와 애매할 때 백업용)
+  // 5) Other (fallback when category is unclear)
   {
     code: '999',
-    label: '기타 (은행 협의 필요)',
+    label: 'Other (bank consultation required)',
     category: 'SERVICE_TRADE',
-    description: '상기 코드로 분류되지 않는 경우, 실제 신고 전 은행과 코드 확인 필요'
-  }
+    description:
+      'Use when none of the above codes apply; confirm the exact BOP code with the bank before reporting',
+  },
 ];
 
-// 미국 소득 유형 (1042-S 등)
+// U.S. source income types (e.g. Form 1042-S)
 export const US_INCOME_TYPES = [
-  // 1) 이자·배당 등 PASSIVE 소득
+  // 1) Passive income – interest & dividends
   {
     code: '01',
-    label: '이자소득 – 미국 내 채무기관 일반이자 (Interest – U.S. obligors)',
+    label: 'Interest income – general interest from U.S. obligors',
     group: 'PASSIVE',
-    description: '미국 법인/기관이 지급하는 일반 이자'
+    description: 'Ordinary interest paid by U.S. corporations or financial institutions',
   },
   {
     code: '02',
-    label: '이자소득 – 부동산 모기지 이자',
+    label: 'Interest income – real estate mortgage interest',
     group: 'PASSIVE',
-    description: '미국 부동산 담보대출 이자'
+    description: 'Interest from U.S. real-estate mortgage loans',
   },
   {
     code: '29',
-    label: '예금 이자 (Deposit interest)',
+    label: 'Deposit interest',
     group: 'PASSIVE',
-    description: '미국 금융기관 예금에서 발생하는 이자'
+    description: 'Interest earned on deposits at U.S. financial institutions',
   },
   {
     code: '06',
-    label: '배당소득 – 미국 법인 일반 배당',
+    label: 'Dividend income – ordinary dividends from U.S. corporations',
     group: 'PASSIVE',
-    description: '미국 주식/펀드에서 지급되는 배당'
+    description: 'Dividends paid from U.S. stocks or funds',
   },
   {
     code: '07',
-    label: '배당소득 – 조약상 우대배당 (Qualified dividend)',
+    label: 'Dividend income – treaty-qualified dividends',
     group: 'PASSIVE',
-    description: '조세조약 요건을 충족하는 경우'
+    description: 'Dividends that qualify for reduced withholding rates under tax treaties',
   },
   {
     code: '08',
-    label: '배당소득 – 외국법인 배당 (Dividend from foreign corp.)',
+    label: 'Dividend income – dividends from foreign corporations',
     group: 'PASSIVE',
-    description: '미국 소스 배당으로 분류되는 외국법인 배당'
+    description: 'Dividends from foreign corporations treated as U.S.-source dividends',
   },
 
-  // 2) 로열티·IP 관련
+  // 2) Royalty / IP-related income
   {
     code: '10',
-    label: '산업재산권 로열티 (Industrial royalties)',
+    label: 'Industrial royalties',
     group: 'ROYALTY',
-    description: '특허·노하우 등 산업재산권 사용료'
+    description: 'Royalties for patents, know-how and other industrial property',
   },
   {
     code: '11',
-    label: '영상·콘텐츠 저작권 로열티',
+    label: 'Film / media copyright royalties',
     group: 'ROYALTY',
-    description: '영화·TV 프로그램 등의 저작권 사용료'
+    description: 'Royalties for movies, TV programs and other media content',
   },
   {
     code: '12',
-    label: '기타 저작권·소프트웨어·브랜딩 로열티',
+    label: 'Other copyright / software / branding royalties',
     group: 'ROYALTY',
-    description: '소프트웨어, 상표권, 초상권·광고 모델료 등'
+    description: 'Software, trademarks, image/likeness rights, advertising/model fees and similar royalties',
   },
 
-  // 3) 부동산·실물 관련
+  // 3) Real property & capital gains
   {
     code: '14',
-    label: '부동산 임대·자원 로열티',
+    label: 'Real-property rents and natural resource royalties',
     group: 'REAL_PROPERTY',
-    description: '부동산 임대료, 광물·천연자원 사용료 등'
+    description: 'Rental income from real property and royalties from minerals or natural resources',
   },
   {
     code: '09',
-    label: '자본이득 (Capital gains)',
+    label: 'Capital gains',
     group: 'REAL_PROPERTY',
-    description: '자산 처분으로 발생한 미국 소스 양도차익'
+    description: 'U.S.-source capital gains from the disposition of assets',
   },
 
-  // 4) 연금·퇴직
+  // 4) Pension / retirement income
   {
     code: '15',
-    label: '연금·연금형 지급·보험 관련 수령액',
+    label: 'Pensions, annuities and similar income',
     group: 'PENSION',
-    description: '연금, 연금형 보험, 일부 alimony 등'
+    description: 'Pensions, annuity-type payments and certain insurance-related payments',
   },
 
-  // 5) 장학금·연구비
+  // 5) Scholarship / fellowship
   {
     code: '16',
-    label: '장학금·펠로우십 (Scholarship/Fellowship)',
+    label: 'Scholarship / fellowship income',
     group: 'SCHOLARSHIP',
-    description: '학비·연구비 등 비과세/과세 장학금 모두 포함'
+    description: 'Taxable and non-taxable scholarships, fellowships and research grants',
   },
 
-  // 6) 인적용역·급여 (Service Income)
+  // 6) Service income (personal services)
   {
     code: '17',
-    label: '독립 인적용역 대가 (Independent personal services)',
+    label: 'Compensation for independent personal services',
     group: 'SERVICE',
-    description: '프리랜서, 컨설턴트 등의 용역대가'
+    description: 'Service fees paid to freelancers, consultants and other independent contractors',
   },
   {
     code: '18',
-    label: '종속 인적용역 대가 (Dependent personal services)',
+    label: 'Compensation for dependent personal services',
     group: 'SERVICE',
-    description: '고용관계에 가까운 급여성 보수'
+    description: 'Salary-type compensation under an employment-like relationship',
   },
   {
     code: '19',
-    label: '교수·강의 활동 대가 (Compensation for teaching)',
+    label: 'Compensation for teaching',
     group: 'SERVICE',
-    description: '강의·세미나·교육서비스 대가'
+    description: 'Income from teaching, lectures, seminars and other educational services',
   },
   {
     code: '20',
-    label: '연수·트레이닝 중 보수 (Compensation during training)',
+    label: 'Compensation during training',
     group: 'SERVICE',
-    description: '연수·연구과정 중 지급되는 보수'
+    description: 'Compensation paid during training, internship or research programs',
   },
   {
     code: '42',
-    label: '아티스트·운동선수 소득 (일반)',
+    label: 'Artist / athlete income (general)',
     group: 'SERVICE',
-    description: '공연·경기 등 예술·스포츠 활동 소득'
+    description: 'Income of artists and athletes from performances, events and competitions',
   },
   {
     code: '43',
-    label: '아티스트·운동선수 소득 (중앙 원천징수 계약 포함)',
+    label: 'Artist / athlete income (central withholding agreements)',
     group: 'SERVICE',
-    description: 'IRS와 별도 계약이 있는 경우'
+    description: 'Artist/athlete income covered by an IRS Central Withholding Agreement',
   },
 
-  // 7) 기타
+  // 7) Other income
   {
     code: '23',
-    label: '기타 FDAP 소득 (Other income)',
+    label: 'Other U.S.-source FDAP income',
     group: 'OTHER',
-    description: '다른 코드에 명시되지 않은 미국 소스 FDAP'
+    description: 'U.S.-source FDAP income not specifically classified under other codes',
   },
   {
     code: '28',
-    label: '겜블링 당첨금 (Gambling winnings)',
+    label: 'Gambling winnings',
     group: 'OTHER',
-    description: '카지노·복권 등 도박·게임 당첨금'
+    description: 'Casino, lottery and other gambling or gaming winnings',
   },
   {
     code: '35',
-    label: '대체 지급 – 기타 (Substitute payment – other)',
+    label: 'Substitute payments – other',
     group: 'OTHER',
-    description: '증권 대차·스왑 등에서 발생하는 대체 지급'
+    description: 'Substitute payments arising from securities lending, swaps and similar transactions',
   },
   {
     code: '50',
-    label: '에스크로 절차 하에서 이전에 보고된 소득',
+    label: 'Income previously reported under escrow procedures',
     group: 'OTHER',
-    description: '이전 연도 에스크로 절차에 따라 이미 보고된 항목'
+    description: 'Amounts previously reported in earlier years under escrow arrangements',
   },
   {
     code: '59',
-    label: 'Consent fee (대출·채무 조건 변경 수수료 등)',
+    label: 'Consent fees (loan / debt modification fees)',
     group: 'OTHER',
-    description: '채무 조건 변경 등과 관련된 수수료'
+    description: 'Fees paid in connection with modifications of loan or debt terms',
   },
   {
     code: '60',
-    label: 'Loan syndication fee (대출 주선 수수료)',
+    label: 'Loan syndication fees',
     group: 'OTHER',
-    description: '신디케이트론 주선 보수'
+    description: 'Fees for arranging or syndicating loan facilities',
   },
   {
     code: '61',
-    label: 'Settlement payment (합의금·분쟁 해결금 등)',
+    label: 'Settlement payments',
     group: 'OTHER',
-    description: '분쟁 조정·합의와 관련된 지급'
-  }
+    description: 'Payments made in connection with legal settlements and dispute resolutions',
+  },
 ];
 
-// 거래 관계
+// Counterparty relationship
 export const RELATIONSHIPS = [
-  { value: 'UNRELATED', label: '제3자 (Unrelated Party)' },
-  { value: 'SUBSIDIARY', label: '자회사 (Subsidiary)' },
-  { value: 'PARENT', label: '모회사 (Parent Company)' },
-  { value: 'FAMILY', label: '가족/친족 (Family)' },
+  { value: 'UNRELATED', label: 'Unrelated party' },
+  { value: 'SUBSIDIARY', label: 'Subsidiary' },
+  { value: 'PARENT', label: 'Parent company' },
+  { value: 'FAMILY', label: 'Family' },
 ];

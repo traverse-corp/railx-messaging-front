@@ -10,7 +10,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recha
 import { MockERC20Abi } from '../../shared/abi/MockERC20';
 
 // 차트 색상 (USDC: Blue, USDT: Green, RLUSD: Orange)
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#ff788aff', '#8284eeff', '#a4f897ff'];
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
 
 export function MyWalletPanel() {
   const { address } = useAccount();
@@ -24,9 +24,6 @@ export function MyWalletPanel() {
     { symbol: 'USDC', name: 'USD Coin', address: import.meta.env.VITE_USDC_ADDRESS as `0x${string}`, color: COLORS[0] },
     { symbol: 'USDT', name: 'Tether USD', address: import.meta.env.VITE_USDT_ADDRESS as `0x${string}`, color: COLORS[1] },
     { symbol: 'RLUSD', name: 'Ripple USD', address: import.meta.env.VITE_RLUSD_ADDRESS as `0x${string}`, color: COLORS[2] },
-    { symbol: 'KRWK', name: 'KRW Coin', address: import.meta.env.VITE_KRWK_ADDRESS as `0x${string}`, color: COLORS[3] },
-    { symbol: 'JPYC', name: 'JPY Coin', address: import.meta.env.VITE_JPYC_ADDRESS as `0x${string}`, color: COLORS[4] },
-    { symbol: 'XSGD', name: 'XSGD Coin', address: import.meta.env.VITE_XSGD_ADDRESS as `0x${string}`, color: COLORS[5] },
   ];
 
   // 1. 한 번에 모든 토큰 잔액 조회

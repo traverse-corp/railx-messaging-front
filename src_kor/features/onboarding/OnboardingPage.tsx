@@ -25,10 +25,10 @@ const supabase = createClient(
 );
 
 const steps = [
-  { title: 'Type', description: 'User Type' },
-  { title: 'KYC', description: 'Basic Information' },
-  { title: 'Settings', description: 'Report Settings' },
-  { title: 'Security', description: 'Key Management' },
+  { title: 'Type', description: '유저 유형' },
+  { title: 'KYC', description: '기본 정보' },
+  { title: 'Settings', description: '리포트 설정' },
+  { title: 'Security', description: '키 관리' },
 ];
 
 export function OnboardingPage() {
@@ -100,7 +100,7 @@ export function OnboardingPage() {
         .eq('wallet_address', targetAddress)
         .single();
 
-      if (!data) throw new Error("Profile not found.");
+      if (!data) throw new Error("프로필을 찾을 수 없습니다.");
 
       // 1) 지갑 서명으로 개인키 복구
       const message = `${RAILX_SIGNING_MESSAGE}${targetAddress}`;
@@ -120,20 +120,20 @@ export function OnboardingPage() {
         if (decryptedPayload.kycData) setKycData(decryptedPayload.kycData);
         if (decryptedPayload.settings) setSettings(decryptedPayload.settings);
         
-        toast({ status: 'success', title: 'Profile Unlocked', description: 'You can now review and edit your information.' });
+        toast({ status: 'success', title: '잠금 해제됨', description: '정보를 수정할 수 있습니다.' });
       } else {
         // 레거시 데이터(평문)인 경우 (이전 버전 호환성)
         if (data.user_type) setUserType(data.user_type);
         if (data.kyc_data) setKycData(data.kyc_data);
         if (data.settings) setSettings(data.settings);
-        toast({ status: 'warning', title: 'Legacy data detected', description: 'Your data will be encrypted and updated when you save.' });
+        toast({ status: 'warning', title: '레거시 데이터', description: '저장 시 암호화되어 업데이트됩니다.' });
       }
 
       setIsLocked(false); // 잠금 풀림 -> 수정 화면으로
 
     } catch (e: any) {
       console.error(e);
-      toast({ status: 'error', title: 'Failed to unlock', description: 'Signature does not match or data may be corrupted.' });
+      toast({ status: 'error', title: '해제 실패', description: '서명이 일치하지 않거나 데이터가 손상되었습니다.' });
     } finally {
       setLoading(false);
     }
@@ -184,7 +184,7 @@ export function OnboardingPage() {
           .single();
           
         if (error || !data?.public_key) {
-          throw new Error("Could not find the existing public key for this profile. Re-initialization may be required.");
+          throw new Error("기존 프로필의 공개키를 찾을 수 없습니다. 초기화가 필요할 수 있습니다.");
         }
 
         // PEM -> CryptoKey 변환 (암호화에 사용하기 위해)
@@ -217,8 +217,8 @@ export function OnboardingPage() {
 
       toast({ 
         status: 'success', 
-        title: hasProfile ? 'Profile updated' : 'Onboarding completed', 
-        description: 'All information has been securely encrypted and stored.' 
+        title: hasProfile ? '정보 업데이트 완료' : '온보딩 완료', 
+        description: '모든 정보가 안전하게 암호화되어 저장되었습니다.' 
       });
       
       // 업데이트 후에는 잠금 상태를 풀거나 유지 (여기서는 앱으로 이동)
@@ -226,7 +226,7 @@ export function OnboardingPage() {
 
     } catch (e: any) {
       console.error(e);
-      toast({ status: 'error', title: 'Failed to save.', description: e.message });
+      toast({ status: 'error', title: '저장 실패', description: e.message });
     } finally {
       setLoading(false);
     }
@@ -279,7 +279,7 @@ export function OnboardingPage() {
       >
         <CardBody textAlign="center" py={10}>
           <Icon as={FaUser} boxSize={10} color={userType === 'INDIVIDUAL' ? 'railx.accent' : 'gray.500'} mb={4} />
-          <Heading size="md" color="white">Individual</Heading>
+          <Heading size="md" color="white">개인 (Individual)</Heading>
         </CardBody>
       </Card>
       <Card 
@@ -289,7 +289,7 @@ export function OnboardingPage() {
       >
         <CardBody textAlign="center" py={10}>
           <Icon as={FaBuilding} boxSize={10} color={userType === 'CORPORATE' ? 'railx.accent' : 'gray.500'} mb={4} />
-          <Heading size="md" color="white">Corporate</Heading>
+          <Heading size="md" color="white">법인 (Corporate)</Heading>
         </CardBody>
       </Card>
     </SimpleGrid>
@@ -303,7 +303,7 @@ export function OnboardingPage() {
           {userType === 'INDIVIDUAL' ? '개인 신원 정보 (IVMS101)' : '법인 정보 (IVMS101)'}
         </Heading>
         <Text fontSize="xs" color="gray.500">
-          * Please enter your full address and identification number accurately to comply with the FATF Travel Rule and FX regulations.
+          * FATF Travel Rule 및 외환거래법 준수를 위해 상세 주소와 식별 번호를 정확히 입력해주세요.
         </Text>
       </Box>
       
@@ -322,17 +322,17 @@ export function OnboardingPage() {
           />
         </FormControl>
         <FormControl isRequired>
-          <FormLabel color="gray.400" fontSize="sm">Country</FormLabel>
+          <FormLabel color="gray.400" fontSize="sm">국가 (Country)</FormLabel>
           <Select 
             name="country" 
             value={kycData.country} 
             onChange={handleInputChange} 
             bg="railx.900"
           >
-          <option value="KR">South Korea (KR)</option>
-          <option value="US">United States (US)</option>
-          <option value="HK">Hong Kong (HK)</option>
-          <option value="SG">Singapore (SG)</option>
+            <option value="KR">대한민국 (South Korea)</option>
+            <option value="US">미국 (United States)</option>
+            <option value="HK">홍콩 (Hong Kong)</option>
+            <option value="SG">싱가포르 (Singapore)</option>
             {/* 필요시 국가 추가 */}
           </Select>
         </FormControl>
@@ -341,7 +341,7 @@ export function OnboardingPage() {
       {/* 공통 필드: 도시, 상세주소 (FATF 필수) */}
       <SimpleGrid columns={2} spacing={4}>
         <FormControl isRequired>
-          <FormLabel color="gray.400" fontSize="sm">City</FormLabel>
+          <FormLabel color="gray.400" fontSize="sm">도시 (City)</FormLabel>
           <Input 
             name="city" 
             value={kycData.city} 
@@ -351,7 +351,7 @@ export function OnboardingPage() {
           />
         </FormControl>
         <FormControl isRequired>
-          <FormLabel color="gray.400" fontSize="sm">Zip Code</FormLabel>
+          <FormLabel color="gray.400" fontSize="sm">우편번호 (Zip Code)</FormLabel>
           <Input 
             name="zipCode" // KycData 타입에 zipCode가 없다면 address에 포함하거나 타입 추가 필요
             placeholder="06234"
@@ -362,7 +362,7 @@ export function OnboardingPage() {
       </SimpleGrid>
 
       <FormControl isRequired>
-        <FormLabel color="gray.400" fontSize="sm">Street Address</FormLabel>
+        <FormLabel color="gray.400" fontSize="sm">상세 주소 (Street Address)</FormLabel>
         <Input 
           name="address" 
           value={kycData.address} 
@@ -379,7 +379,7 @@ export function OnboardingPage() {
         // [개인] 생년월일, 식별번호
         <SimpleGrid columns={2} spacing={4}>
           <FormControl isRequired>
-            <FormLabel color="gray.400" fontSize="sm">Date of Birth</FormLabel>
+            <FormLabel color="gray.400" fontSize="sm">생년월일 (Date of Birth)</FormLabel>
             <Input 
               type="date" 
               name="dob" 
@@ -389,7 +389,7 @@ export function OnboardingPage() {
             />
           </FormControl>
           <FormControl>
-            <FormLabel color="gray.400" fontSize="sm">National ID</FormLabel>
+            <FormLabel color="gray.400" fontSize="sm">여권/주민번호 (National ID)</FormLabel>
             <Input 
               name="nationalId" 
               value={kycData.nationalId} 
@@ -404,7 +404,7 @@ export function OnboardingPage() {
         <>
           <SimpleGrid columns={2} spacing={4}>
             <FormControl isRequired>
-              <FormLabel color="gray.400" fontSize="sm">Date of Incorp.</FormLabel>
+              <FormLabel color="gray.400" fontSize="sm">설립일 (Date of Incorp.)</FormLabel>
               <Input 
                 type="date" 
                 name="incorporationDate" 
@@ -414,7 +414,7 @@ export function OnboardingPage() {
               />
             </FormControl>
             <FormControl isRequired>
-              <FormLabel color="gray.400" fontSize="sm">Biz Reg. No / LEI</FormLabel>
+              <FormLabel color="gray.400" fontSize="sm">사업자/법인 번호 (Biz Reg. No / LEI)</FormLabel>
               <Input 
                 name="bizRegNumber" 
                 value={kycData.bizRegNumber} 
@@ -427,7 +427,7 @@ export function OnboardingPage() {
 
           <SimpleGrid columns={2} spacing={4}>
             <FormControl isRequired>
-              <FormLabel color="gray.400" fontSize="sm">Contact Person</FormLabel>
+              <FormLabel color="gray.400" fontSize="sm">담당자 성명 (Contact Person)</FormLabel>
               <Input 
                 name="contactName" 
                 value={kycData.contactName} 
@@ -436,7 +436,7 @@ export function OnboardingPage() {
               />
             </FormControl>
             <FormControl isRequired>
-              <FormLabel color="gray.400" fontSize="sm">Contact Email</FormLabel>
+              <FormLabel color="gray.400" fontSize="sm">담당자 이메일 (Contact Email)</FormLabel>
               <Input 
                 type="email"
                 name="contactEmail" 
@@ -455,10 +455,10 @@ export function OnboardingPage() {
   const renderStep3 = () => {
     // 국가별 제공되는 리포트 모듈 (시각적 표시용)
     const reportModules = {
-      KR: ['FX transaction statement (payment/receipt)', 'Resident account declaration', 'Corporate income tax basis report'],
-      US: ['IRS Form 8949 (Sales/Dispositions)', 'FBAR worksheet', 'Schedule D output'],
-      HK: ['Profits Tax Return support', 'Significant Controller Register'],
-      SG: ['GST F5 return data', 'IRAS corporate tax schedule'],
+      KR: ['외국환거래계산서 (지급/수령)', '거주자 계정 신고서', '법인세 과표 산출 내역'],
+      US: ['IRS Form 8949 (Sales/Dispositions)', 'FBAR Worksheet', 'Schedule D Output'],
+      HK: ['Profits Tax Return Support', 'Significant Controller Register'],
+      SG: ['GST F5 Return Data', 'IRAS Corp Tax Schedule'],
     };
 
     const currentModules = reportModules[settings.reportJurisdiction as keyof typeof reportModules] || [];
@@ -469,7 +469,7 @@ export function OnboardingPage() {
         
         <SimpleGrid columns={2} spacing={4}>
           <FormControl>
-            <FormLabel color="gray.400">Jurisdiction</FormLabel>
+            <FormLabel color="gray.400">신고 관할 (Jurisdiction)</FormLabel>
             <Select 
               value={settings.reportJurisdiction} 
               onChange={(e) => {
@@ -498,7 +498,7 @@ export function OnboardingPage() {
           </FormControl>
 
           <FormControl>
-            <FormLabel color="gray.400">Accounting standard</FormLabel>
+            <FormLabel color="gray.400">회계 기준 (Standard)</FormLabel>
             <Select 
               value={settings.accountingStandard} 
               onChange={(e) => setSettings({...settings, accountingStandard: e.target.value as any})}
@@ -514,7 +514,7 @@ export function OnboardingPage() {
 
         <SimpleGrid columns={2} spacing={4}>
           <FormControl>
-            <FormLabel color="gray.400">Base Currency</FormLabel>
+            <FormLabel color="gray.400">기준 통화 (Base Currency)</FormLabel>
             <Select 
               value={settings.baseCurrency} 
               onChange={(e) => setSettings({...settings, baseCurrency: e.target.value as any})}
@@ -529,7 +529,7 @@ export function OnboardingPage() {
 
           {userType === 'CORPORATE' && (
             <FormControl>
-              <FormLabel color="gray.400">Fiscal Year End</FormLabel>
+              <FormLabel color="gray.400">회계연도 종료 (Fiscal Year End)</FormLabel>
               <Input 
                 placeholder="MM-DD" 
                 value={settings.fiscalYearEnd} 
@@ -570,8 +570,8 @@ export function OnboardingPage() {
         <Heading size="md" color="white" mb={2}>{hasProfile ? '정보 수정 및 재암호화' : '보안 키 생성 및 저장'}</Heading>
         <Text color="gray.400" fontSize="sm">
           {hasProfile 
-            ? 'Your updated information will be re-encrypted with your public key. The server cannot read the contents.'
-            : 'Generate a secure key pair via wallet signature and encrypt your information before storing it.'}
+            ? '변경된 정보를 귀하의 공개키로 다시 암호화하여 저장합니다. 서버는 내용을 볼 수 없습니다.'
+            : '지갑 서명을 통해 보안 키를 생성하고, 정보를 암호화하여 저장합니다.'}
         </Text>
       </Box>
     </VStack>
@@ -592,8 +592,8 @@ export function OnboardingPage() {
               <Icon as={FaLock} boxSize={16} color="gray.500" />
               <Heading size="lg" color="white">Profile Locked</Heading>
               <Text color="gray.400" maxW="md">
-                Your profile data is securely encrypted.<br/>
-                To view or edit it, please <b>unlock</b> with a wallet signature.
+                안전하게 암호화된 프로필 정보가 있습니다.<br/>
+                내용을 확인하거나 수정하려면 <b>지갑 서명</b>으로 잠금을 해제하세요.
               </Text>
               <Button 
                 size="lg" 

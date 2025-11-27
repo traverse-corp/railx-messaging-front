@@ -1,4 +1,4 @@
-export type Currency = 'USDC' | 'USDT' | 'RLUSD' | 'KRWK' | 'JPYC' | 'XSGD';
+export type Currency = 'USDC' | 'USDT' | 'RLUSD';
 
 export interface TxPurposeOption {
   value: TxPurposeCategory;
@@ -9,23 +9,23 @@ export interface TxPurposeOption {
 export const TX_PURPOSE_OPTIONS: TxPurposeOption[] = [
   {
     value: 'GOODS_EXPORT_IMPORT',
-    label: 'Goods export/import payment',
-    description: 'Trade payments for finished goods, raw materials, customs-cleared imports/exports, etc.'
+    label: '재화 수출입 대금',
+    description: '완제품·원자재 수출입, 무역대금, 통관 수입·수출 대금 등'
   },
   {
     value: 'SERVICE_TRADE',
-    label: 'Services & fees',
-    description: 'Consulting, IT/SaaS, marketing, education, royalties and other service fees.'
+    label: '용역·서비스 거래',
+    description: '컨설팅·IT/SaaS·마케팅·교육·로열티 등 서비스 수수료'
   },
   {
     value: 'CAPITAL_TRANSFER',
-    label: 'Capital transactions (investment, loans, equity)',
-    description: 'Overseas securities/fund/real-estate investment, intercompany loans, capital injections, etc.'
+    label: '자본거래 (투자·대출·지분 등)',
+    description: '해외 증권·펀드·부동산 투자, 해외법인 대여금·증자 등'
   },
   {
     value: 'INDIVIDUAL_REMITTANCE',
-    label: 'Individual remittance (living expenses, gifts, pension)',
-    description: 'Tuition, living expenses, salary, gifts, travel/medical costs and other personal purposes.'
+    label: '개인 송금 (생활비·증여·연금 등)',
+    description: '학비·생활비·연금·급여·증여·여행/의료비 등 개인 목적'
   }
 ];
 
@@ -45,10 +45,8 @@ export interface ComplianceLog {
 
 export interface TransactionMetadata {
   // 1. 기본 트랜잭션 정보
-  fromToken: Currency; // 🔥 [추가] 보내는 자산
   token: Currency;
   amount: string;
-  fxTolerance: string;
   senderAddress: string;
   timestamp: string;  
   // 🔥 [수정] 여기서 한 번만 정의합니다 (필수 값)

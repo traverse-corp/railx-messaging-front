@@ -1,4 +1,4 @@
-// frontend/src/components/Header.tsx
+// frontend/src/components/Header.tsx (새 파일 생성)
 
 import React from 'react';
 import { Flex, Button, Text, Spacer, Box, useToast } from '@chakra-ui/react';
@@ -18,31 +18,28 @@ export function Header() {
   const toast = useToast();
 
   const handleConnect = () => {
-    connect(
-      { connector: injected() },
-      {
-        onSuccess: (data) => {
-          toast({
-            title: 'Wallet connected',
-            description: truncateAddress(data.accounts[0]),
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-            position: 'top-right',
-          });
-        },
-        onError: (error) => {
-          toast({
-            title: 'Failed to connect wallet',
-            description: error.message,
-            status: 'error',
-            duration: 3000,
-            isClosable: true,
-            position: 'top-right',
-          });
-        },
+    connect({ connector: injected() }, {
+      onSuccess: (data) => {
+        toast({
+          title: '지갑 연결 성공',
+          description: truncateAddress(data.accounts[0]),
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+          position: 'top-right',
+        });
       },
-    );
+      onError: (error) => {
+        toast({
+          title: '지갑 연결 실패',
+          description: error.message,
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+          position: 'top-right',
+        });
+      }
+    });
   };
 
   return (
