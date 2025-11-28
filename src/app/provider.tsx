@@ -133,6 +133,18 @@ Button: {
           }
         }
       }
+    },
+    // 🔥 [추가] 툴팁 스타일 강제 지정
+    Tooltip: {
+      baseStyle: {
+        bg: 'gray.700', // 배경은 짙은 회색
+        color: 'white', // 글씨는 흰색
+        fontSize: 'xs',
+        borderRadius: 'md',
+        px: 3,
+        py: 2,
+        marginBottom: '2px',
+      }
     }
   }
 });
