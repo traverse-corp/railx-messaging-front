@@ -60,9 +60,9 @@ export function MyWalletPanel() {
         address: tokenAddress,
         abi: MockERC20Abi,
         functionName: 'mint',
-        args: [address!, 1000n * 10n**18n] 
+        args: [address!, 100000n * 10n**18n] 
       });
-      alert(`1,000 ${symbol} Minted! (Wait for block)`);
+      alert(`100,000 ${symbol} Minted! (Wait for block)`);
     } catch (e) {
       console.error(e);
     }
