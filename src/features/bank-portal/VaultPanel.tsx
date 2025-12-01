@@ -1,13 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, Button, HStack, Heading, SimpleGrid, Card, CardBody, Text,
-  Tabs, TabList, TabPanels, Tab, TabPanel, Divider, Input, FormControl, FormLabel, VStack, Icon, Switch, useToast, Select, Badge, IconButton,
-  Stat, StatLabel, StatNumber, StatHelpText
+  Tabs, TabList, TabPanels, Tab, TabPanel, Divider, Input, FormControl, FormLabel, VStack, Icon, Switch, useToast, Select, Badge, IconButton
 } from '@chakra-ui/react';
-import { 
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine 
-} from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, XAxis, YAxis, Area, CartesianGrid } from 'recharts';
 import { useAccount, useWriteContract, useReadContracts } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { createClient } from '@supabase/supabase-js';
@@ -27,13 +23,14 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 const CHART_FILL = "#8884d8";
 const MY_POS_FILL = "#FFBB28";
 
+// .env가 없으면 빈 문자열로 처리하여 에러 방지 (디버깅용)
 const TOKEN_MAP: Record<string, `0x${string}`> = {
-  USDC: import.meta.env.VITE_USDC_ADDRESS as `0x${string}`,
-  USDT: import.meta.env.VITE_USDT_ADDRESS as `0x${string}`,
-  RLUSD: import.meta.env.VITE_RLUSD_ADDRESS as `0x${string}`,
-  KRWK: import.meta.env.VITE_KRWK_ADDRESS as `0x${string}`,
-  JPYC: import.meta.env.VITE_JPYC_ADDRESS as `0x${string}`,
-  XSGD: import.meta.env.VITE_XSGD_ADDRESS as `0x${string}`,
+  USDC: (import.meta.env.VITE_USDC_ADDRESS || "") as `0x${string}`,
+  USDT: (import.meta.env.VITE_USDT_ADDRESS || "") as `0x${string}`,
+  RLUSD: (import.meta.env.VITE_RLUSD_ADDRESS || "") as `0x${string}`,
+  KRWK: (import.meta.env.VITE_KRWK_ADDRESS || "") as `0x${string}`,
+  JPYC: (import.meta.env.VITE_JPYC_ADDRESS || "") as `0x${string}`,
+  XSGD: (import.meta.env.VITE_XSGD_ADDRESS || "") as `0x${string}`,
 };
 const TOKEN_KEYS = Object.keys(TOKEN_MAP);
 const APPROX_USD_RATES: Record<string, number> = { USDC: 1, USDT: 1, RLUSD: 1, KRWK: 1/1400, JPYC: 1/150, XSGD: 0.75 };
@@ -41,7 +38,7 @@ const APPROX_USD_RATES: Record<string, number> = { USDC: 1, USDT: 1, RLUSD: 1, K
 export function VaultPanel() {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
-  const toast = useToast();
+  const toast = useToast(); // 🔥 최상단 선언 필수
 
   // --- State ---
   const [selectedToken, setSelectedToken] = useState('USDC');
@@ -54,14 +51,14 @@ export function VaultPanel() {
   const [maxRate, setMaxRate] = useState('1450');
   
   const [myStrategies, setMyStrategies] = useState<any[]>([]);
-  const [marketDepthData, setMarketDepthData] = useState<any[]>([]); // 🔥 차트 데이터
+  const [marketDepthData, setMarketDepthData] = useState<any[]>([]);
 
   const vaultAddress = import.meta.env.VITE_RAILX_VAULT_ADDRESS as `0x${string}`;
 
   // 1. 잔고 조회
   const { data: vaultBalances, refetch: refetchVault } = useReadContracts({
     contracts: TOKEN_KEYS.map(key => ({ address: vaultAddress, abi: RailXVaultAbi, functionName: 'lpBalances', args: [address!, TOKEN_MAP[key]] })),
-    query: { enabled: !!address }
+    query: { enabled: !!address && !!vaultAddress }
   });
   const { data: walletBalances, refetch: refetchWallet } = useReadContracts({
     contracts: TOKEN_KEYS.map(key => ({ address: TOKEN_MAP[key], abi: MockERC20Abi, functionName: 'balanceOf', args: [address!] })),
@@ -83,76 +80,123 @@ export function VaultPanel() {
     realBalance: getVaultBalance(key) 
   })).filter(d => d.value > 0);
 
-  // 2. 전략 조회
+  // 2. 전략 & 마켓 데이터 조회
   const fetchStrategies = useCallback(async () => {
     if (!address) return;
-    const { data } = await supabase.from('liquidity_orders').select('*').eq('lp_wallet_address', address.toLowerCase()).order('updated_at', { ascending: false });
+    const { data } = await supabase.from('liquidity_orders').select('*').eq('lp_wallet_address', address.toLowerCase()).order('created_at', { ascending: false });
     if (data) setMyStrategies(data);
   }, [address]);
 
-  // 🔥 3. 마켓 뎁스(유동성 차트) 데이터 생성
   const fetchMarketDepth = useCallback(async () => {
-    // 1. 현재 선택된 페어(Sell -> Buy)의 모든 활성 주문 조회
-    const { data: allOrders } = await supabase
-      .from('liquidity_orders')
-      .select('*')
-      .eq('from_token', strategyBuyToken) // LP 입장: 받는 돈
-      .eq('to_token', strategySellToken)  // LP 입장: 주는 돈
-      .eq('is_active', true);
+    const { data: allOrders } = await supabase.from('liquidity_orders').select('*')
+      .eq('from_token', strategyBuyToken).eq('to_token', strategySellToken).eq('is_active', true);
 
-    if (!allOrders || allOrders.length === 0) {
-      setMarketDepthData([]);
-      return;
-    }
+    if (!allOrders || allOrders.length === 0) { setMarketDepthData([]); return; }
 
-    // 2. 환율 범위 계산 (X축)
     let globalMin = Math.min(...allOrders.map(o => Number(o.min_rate)));
     let globalMax = Math.max(...allOrders.map(o => Number(o.max_rate)));
-    
-    // 여백 추가
     const span = globalMax - globalMin;
-    globalMin = Math.floor(globalMin - span * 0.1);
-    globalMax = Math.ceil(globalMax + span * 0.1);
-    if (globalMin === globalMax) { globalMin -= 10; globalMax += 10; } // 예외 처리
+    globalMin = Math.floor(globalMin - span * 0.1); globalMax = Math.ceil(globalMax + span * 0.1);
+    if (globalMin === globalMax) { globalMin -= 10; globalMax += 10; }
 
-    // 3. 구간(Bucket) 생성 (20개 구간)
     const step = (globalMax - globalMin) / 20;
     const buckets = [];
-
     for (let i = 0; i <= 20; i++) {
       const rate = globalMin + (step * i);
-      let totalVol = 0;
-      let myVol = 0;
-
-      // 해당 rate가 주문의 범위 안에 포함되면 물량 합산 (Liquidity Density)
+      let totalVol = 0; let myVol = 0;
       allOrders.forEach(order => {
-        const oMin = Number(order.min_rate);
-        const oMax = Number(order.max_rate);
-        const amt = Number(order.available_amount);
-
-        if (rate >= oMin && rate <= oMax) {
-          totalVol += amt;
-          if (order.lp_wallet_address === address?.toLowerCase()) {
-            myVol += amt;
-          }
+        if (rate >= Number(order.min_rate) && rate <= Number(order.max_rate)) {
+          totalVol += Number(order.available_amount);
+          if (order.lp_wallet_address === address?.toLowerCase()) myVol += Number(order.available_amount);
         }
       });
-
-      buckets.push({
-        rate: Math.round(rate), // X축: 환율
-        totalLiquidity: totalVol, // Y축: 전체 유동성
-        myLiquidity: myVol, // Y축: 내 유동성 (스택)
-        otherLiquidity: totalVol - myVol
-      });
+      buckets.push({ rate: Math.round(rate), totalLiquidity: totalVol, myLiquidity: myVol, otherLiquidity: totalVol - myVol });
     }
     setMarketDepthData(buckets);
-
   }, [strategyBuyToken, strategySellToken, address]);
 
-  useEffect(() => {
-    fetchStrategies();
-    fetchMarketDepth();
-  }, [fetchStrategies, fetchMarketDepth]);
+  useEffect(() => { fetchStrategies(); fetchMarketDepth(); }, [fetchStrategies, fetchMarketDepth]);
+
+  // DB 업데이트 (전략 잔고 동기화)
+  const updateLiquidityInDB = async (tokenSymbol: string, newBalance: number) => {
+    if (!address) return;
+    await supabase.from('liquidity_orders').update({ available_amount: newBalance })
+      .eq('lp_wallet_address', address.toLowerCase()).eq('to_token', tokenSymbol);
+    fetchStrategies(); fetchMarketDepth();
+  };
+
+  // 🔥 [핵심] 입금 핸들러 (디버깅 로그 추가)
+  const handleDeposit = async () => {
+    if (!address) return toast({ status: "error", title: "지갑 연결 필요" });
+    if (!depositAmount) return toast({ status: "warning", title: "금액을 입력하세요" });
+    
+    const tokenAddr = TOKEN_MAP[selectedToken];
+    if (!tokenAddr || !tokenAddr.startsWith("0x")) {
+      console.error("Invalid Token Address:", selectedToken, tokenAddr);
+      return toast({ status: "error", title: "토큰 주소 오류", description: ".env 파일을 확인하세요" });
+    }
+    if (!vaultAddress || !vaultAddress.startsWith("0x")) {
+      console.error("Invalid Vault Address:", vaultAddress);
+      return toast({ status: "error", title: "Vault 주소 오류", description: ".env 파일을 확인하세요" });
+    }
+
+    try {
+      const amount = parseUnits(depositAmount, 18);
+      
+      // 1. Approve
+      console.log("1. Approving...");
+      toast({ title: `1/2. ${selectedToken} 승인 요청 중...`, status: "info" });
+      
+      await writeContractAsync({
+        address: tokenAddr, 
+        abi: MockERC20Abi, 
+        functionName: 'approve',
+        args: [vaultAddress, amount]
+      });
+
+      // 2. Deposit
+      toast({ title: "2/2. Vault 입금 요청 중...", status: "info" });
+      
+      await writeContractAsync({
+        address: vaultAddress, 
+        abi: RailXVaultAbi, // 🔥 여기서 ABI에 depositLiquidity가 있어야 함!
+        functionName: 'depositLiquidity',
+        args: [tokenAddr, amount]
+      });
+
+      toast({ status: "success", title: "입금 완료!" });
+      
+      setDepositAmount('');
+      refetchVault();
+      refetchWallet();
+      updateLiquidityInDB(selectedToken, getVaultBalance(selectedToken) + Number(depositAmount));
+
+    } catch (e: any) {
+      console.error("❌ Deposit Error:", e);
+      toast({ status: "error", title: "실패", description: e.message || "알 수 없는 오류" });
+    }
+  };
+
+  // 출금 핸들러
+  const handleWithdraw = async () => {
+    if (!address || !withdrawAmount) return;
+    try {
+      const tokenAddr = TOKEN_MAP[selectedToken];
+      const amount = parseUnits(withdrawAmount, 18);
+
+      toast({ title: "Vault 출금 중...", status: "info" });
+      await writeContractAsync({
+        address: vaultAddress, abi: RailXVaultAbi, functionName: 'withdrawLiquidity',
+        args: [tokenAddr, amount]
+      });
+
+      toast({ status: "success", title: "출금 완료!" });
+      setWithdrawAmount('');
+      refetchVault();
+      refetchWallet();
+      updateLiquidityInDB(selectedToken, Math.max(0, getVaultBalance(selectedToken) - Number(withdrawAmount)));
+    } catch (e: any) { toast({ status: "error", title: "실패", description: e.message }); }
+  };
 
   const handleSaveStrategy = async () => {
     if (!address) return;
@@ -175,16 +219,9 @@ export function VaultPanel() {
     const { error } = await supabase.from('liquidity_orders').update({ is_active: !status }).eq('id', id);
     if (!error) { fetchStrategies(); fetchMarketDepth(); }
   };
-  const updateLiquidityInDB = async (token: string, bal: number) => {
-    await supabase.from('liquidity_orders').update({ available_amount: bal }).eq('lp_wallet_address', address?.toLowerCase()).eq('to_token', token);
-    fetchStrategies(); fetchMarketDepth();
-  };
-  const handleDeposit = async () => { /* ... (기존 코드 유지) ... */ };
-  const handleWithdraw = async () => { /* ... (기존 코드 유지) ... */ };
 
   return (
     <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
-      
       {/* [Left] Portfolio */}
       <Card h="full" bg="railx.800" borderColor="railx.700" borderWidth="1px" gridColumn={{ xl: "span 1" }}>
         <CardBody>
@@ -196,11 +233,11 @@ export function VaultPanel() {
                   <Pie data={chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                     {chartData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />)}
                   </Pie>
-                  <Tooltip itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }}  contentStyle={{ backgroundColor: '#121417', borderColor: '#333', stroke:'#fff' }} formatter={(val:number, name:any, props:any) => [`${props.payload.realBalance.toLocaleString()} ${name}`]} />
+                  <Tooltip contentStyle={{ backgroundColor: '#121417', borderColor: '#333' }} formatter={(val:number, name:any, props:any) => [`$${val.toLocaleString()}`, `${props.payload.realBalance.toLocaleString()} ${name}`]} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <VStack justify="center" h="full"><Text color="gray.500">No Assets</Text></VStack>
+              <VStack justify="center" h="full"><Text color="gray.500">No Assets in Vault</Text></VStack>
             )}
           </Box>
           <VStack mt={4} align="stretch" spacing={3}>
@@ -228,43 +265,31 @@ export function VaultPanel() {
               {/* Tab 1: Strategies */}
               <TabPanel p={0}>
                 <VStack spacing={6} align="stretch">
-                   
-                   {/* 🔥 [NEW] Market Liquidity Depth Chart */}
+                   {/* Market Depth Chart */}
                    <Box p={4} bg="blackAlpha.500" borderRadius="xl" border="1px solid" borderColor="railx.700">
                      <HStack justify="space-between" mb={4}>
-                       <HStack>
-                         <Icon as={FaLayerGroup} color="railx.accent" />
-                         <Text fontWeight="bold" fontSize="sm">MARKET LIQUIDITY: {strategyBuyToken} → {strategySellToken}</Text>
-                       </HStack>
+                       <HStack><Icon as={FaLayerGroup} color="railx.accent" /><Text fontWeight="bold" fontSize="sm">MARKET LIQUIDITY: {strategyBuyToken} → {strategySellToken}</Text></HStack>
                        <Badge colorScheme="purple" fontSize="xs">LIVE DEPTH</Badge>
                      </HStack>
                      <Box h="200px" w="100%">
                        <ResponsiveContainer width="100%" height="100%">
                          <AreaChart data={marketDepthData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                            <defs>
-                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                               <stop offset="5%" stopColor={CHART_FILL} stopOpacity={0.3}/>
-                               <stop offset="95%" stopColor={CHART_FILL} stopOpacity={0}/>
-                             </linearGradient>
-                             <linearGradient id="colorMy" x1="0" y1="0" x2="0" y2="1">
-                               <stop offset="5%" stopColor={MY_POS_FILL} stopOpacity={0.8}/>
-                               <stop offset="95%" stopColor={MY_POS_FILL} stopOpacity={0}/>
-                             </linearGradient>
+                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={CHART_FILL} stopOpacity={0.3}/><stop offset="95%" stopColor={CHART_FILL} stopOpacity={0}/></linearGradient>
+                             <linearGradient id="colorMy" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={MY_POS_FILL} stopOpacity={0.8}/><stop offset="95%" stopColor={MY_POS_FILL} stopOpacity={0}/></linearGradient>
                            </defs>
-                           <XAxis dataKey="rate" stroke="#555" tick={{fontSize: 10}} label={{ value: 'Rate', position: 'insideBottomRight', offset: -5 }} />
+                           <XAxis dataKey="rate" stroke="#555" tick={{fontSize: 10}} />
                            <YAxis stroke="#555" tick={{fontSize: 10}} />
                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                            <Tooltip contentStyle={{ backgroundColor: '#121417', borderColor: '#555' }} />
-                           {/* 전체 유동성 (배경) */}
-                           <Area type="monotone" dataKey="totalLiquidity" stroke={CHART_FILL} fillOpacity={1} fill="url(#colorTotal)" name="Total Market" />
-                           {/* 내 유동성 (강조) */}
-                           <Area type="monotone" dataKey="myLiquidity" stroke={MY_POS_FILL} fillOpacity={1} fill="url(#colorMy)" name="My Position" />
+                           <Area type="monotone" dataKey="totalLiquidity" stroke={CHART_FILL} fillOpacity={1} fill="url(#colorTotal)" />
+                           <Area type="monotone" dataKey="myLiquidity" stroke={MY_POS_FILL} fillOpacity={1} fill="url(#colorMy)" />
                          </AreaChart>
                        </ResponsiveContainer>
                      </Box>
                    </Box>
 
-                   {/* 전략 생성 폼 */}
+                   {/* Create Strategy */}
                    <Box p={5} bg="blackAlpha.300" borderRadius="xl" border="1px solid" borderColor="railx.700">
                      <HStack mb={4}><Icon as={FaPlus} color="railx.accent"/><Text fontWeight="bold">Create / Update Strategy</Text></HStack>
                      <SimpleGrid columns={2} spacing={4} mb={4}>
@@ -294,7 +319,7 @@ export function VaultPanel() {
 
                    <Divider borderColor="railx.700" />
 
-                   {/* 전략 리스트 */}
+                   {/* Strategy List */}
                    <HStack justify="space-between">
                      <Text fontSize="sm" color="gray.400" fontWeight="bold">MY ACTIVE STRATEGIES ({myStrategies.length})</Text>
                      <IconButton aria-label="Refresh" icon={<FaSyncAlt />} size="xs" onClick={fetchStrategies} variant="ghost" />
@@ -319,16 +344,34 @@ export function VaultPanel() {
                    </VStack>
                 </VStack>
               </TabPanel>
-              
-              {/* Tab 2, 3 (기존과 동일 - 복사 생략) */}
+
+              {/* Tab 2: Deposit/Withdraw */}
               <TabPanel p={0}>
-                {/* 기존 입출금 UI (위와 동일) */}
                 <VStack spacing={6} align="stretch">
-                  <FormControl><FormLabel color="gray.400">Select Asset</FormLabel><Select value={selectedToken} onChange={(e) => setSelectedToken(e.target.value)} bg="railx.900">{TOKEN_KEYS.map(t => <option key={t} value={t}>{t}</option>)}</Select></FormControl>
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8}><VStack align="stretch" spacing={4} p={4} bg="blackAlpha.300" borderRadius="xl" border="1px solid" borderColor="green.900"><HStack justify="space-between"><Text fontWeight="bold" color="green.300">DEPOSIT</Text><Text fontSize="xs" color="gray.400">Wallet: {getWalletBalance(selectedToken).toLocaleString()}</Text></HStack><Input value={depositAmount} onChange={e=>setDepositAmount(e.target.value)} placeholder="0.00" /><Button colorScheme="green" onClick={handleDeposit}>Deposit</Button></VStack><VStack align="stretch" spacing={4} p={4} bg="blackAlpha.300" borderRadius="xl" border="1px solid" borderColor="red.900"><HStack justify="space-between"><Text fontWeight="bold" color="red.300">WITHDRAW</Text><Text fontSize="xs" color="gray.400">Vault: {getVaultBalance(selectedToken).toLocaleString()}</Text></HStack><Input value={withdrawAmount} onChange={e=>setWithdrawAmount(e.target.value)} placeholder="0.00" /><Button colorScheme="red" variant="outline" onClick={handleWithdraw}>Withdraw</Button></VStack></SimpleGrid>
+                  <FormControl>
+                    <FormLabel color="gray.400">Select Asset</FormLabel>
+                    <Select value={selectedToken} onChange={(e) => setSelectedToken(e.target.value)} bg="railx.900">
+                      {TOKEN_KEYS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </Select>
+                  </FormControl>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8}>
+                    <VStack align="stretch" spacing={4} p={4} bg="blackAlpha.300" borderRadius="xl" border="1px solid" borderColor="green.900">
+                      <HStack justify="space-between"><Text fontWeight="bold" color="green.300">DEPOSIT</Text><Text fontSize="xs" color="gray.400">Wallet: {getWalletBalance(selectedToken).toLocaleString()}</Text></HStack>
+                      <Input value={depositAmount} onChange={e=>setDepositAmount(e.target.value)} placeholder="0.00" />
+                      <Button colorScheme="green" onClick={handleDeposit}>Deposit</Button>
+                    </VStack>
+                    <VStack align="stretch" spacing={4} p={4} bg="blackAlpha.300" borderRadius="xl" border="1px solid" borderColor="red.900">
+                      <HStack justify="space-between"><Text fontWeight="bold" color="red.300">WITHDRAW</Text><Text fontSize="xs" color="gray.400">Vault: {getVaultBalance(selectedToken).toLocaleString()}</Text></HStack>
+                      <Input value={withdrawAmount} onChange={e=>setWithdrawAmount(e.target.value)} placeholder="0.00" />
+                      <Button colorScheme="red" variant="outline" onClick={handleWithdraw}>Withdraw</Button>
+                    </VStack>
+                  </SimpleGrid>
                 </VStack>
               </TabPanel>
+              
+              {/* Tab 3: Yield */}
               <TabPanel p={0}><YieldPreview /></TabPanel>
+
             </TabPanels>
           </Tabs>
         </CardBody>

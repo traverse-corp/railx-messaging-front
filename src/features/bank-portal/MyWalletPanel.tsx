@@ -1,25 +1,36 @@
 import React from 'react';
 import { 
   Box, Button, HStack, Text, Heading, Card, CardBody, VStack, Divider, Badge, SimpleGrid, Flex,
-  IconButton, useClipboard, Tooltip as ChakraTooltip 
+  IconButton, useClipboard, Tooltip as ChakraTooltip, useToast
 } from '@chakra-ui/react';
 import { CopyIcon, CheckIcon } from '@chakra-ui/icons';
-import { useAccount, useReadContracts, useWriteContract } from 'wagmi';
+import { 
+  useAccount, 
+  useReadContracts, 
+  useWriteContract, 
+  useChainId,       // 현재 체인 ID 확인
+  useSwitchChain    // 체인 전환 함수
+} from 'wagmi';
+import { polygonAmoy } from 'wagmi/chains'; // 목표 체인
 import { formatUnits } from 'viem';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { MockERC20Abi } from '../../shared/abi/MockERC20';
 
-// 차트 색상 (USDC: Blue, USDT: Green, RLUSD: Orange)
+// 차트 색상
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#ff788aff', '#8284eeff', '#a4f897ff'];
 
 export function MyWalletPanel() {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   
-  // 복사 기능 훅 (Chakra UI)
+  // 🔥 현재 연결된 네트워크 ID와 전환 함수 가져오기
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+  
+  const toast = useToast();
   const { onCopy, hasCopied } = useClipboard(address || "");
 
-  // 토큰 설정 (환경변수에서 주소 로드)
+  // 토큰 설정
   const tokens = [
     { symbol: 'USDC', name: 'USD Coin', address: import.meta.env.VITE_USDC_ADDRESS as `0x${string}`, color: COLORS[0] },
     { symbol: 'USDT', name: 'Tether USD', address: import.meta.env.VITE_USDT_ADDRESS as `0x${string}`, color: COLORS[1] },
@@ -29,7 +40,7 @@ export function MyWalletPanel() {
     { symbol: 'XSGD', name: 'XSGD Coin', address: import.meta.env.VITE_XSGD_ADDRESS as `0x${string}`, color: COLORS[5] },
   ];
 
-  // 1. 한 번에 모든 토큰 잔액 조회
+  // 1. 잔액 조회
   const { data: balances } = useReadContracts({
     contracts: tokens.map(t => ({
       address: t.address,
@@ -43,28 +54,51 @@ export function MyWalletPanel() {
   const portfolioData = tokens.map((token, index) => {
     const rawBalance = balances?.[index]?.result;
     const balance = rawBalance ? Number(formatUnits(BigInt(String(rawBalance)), 18)) : 0;
-      return {
-        name: token.symbol,
-        value: balance,
-        color: token.color
-      };
+    return {
+      name: token.symbol,
+      value: balance,
+      color: token.color
+    };
   });
 
-  // 3. 총 자산 가치
   const totalValue = portfolioData.reduce((acc, cur) => acc + cur.value, 0);
 
-  // 4. Faucet (테스트용)
+  // 4. Faucet (네트워크 강제 전환 로직 포함)
   const handleMint = async (tokenAddress: `0x${string}`, symbol: string) => {
+    if (!address) {
+      toast({ status: 'warning', title: '지갑을 먼저 연결해주세요.' });
+      return;
+    }
+
     try {
+      // 🔥 [핵심] 현재 네트워크가 Amoy가 아니면 강제로 전환 요청
+      if (chainId !== polygonAmoy.id) {
+        try {
+          await switchChainAsync({ chainId: polygonAmoy.id });
+          // 전환 후 잠시 대기 (안정성 확보)
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (e) {
+          // 유저가 전환을 거부하면 함수 종료
+          toast({ status: 'warning', title: '네트워크 전환 필요', description: 'Polygon Amoy 네트워크로 전환해야 실행할 수 있습니다.' });
+          return;
+        }
+      }
+
+      toast({ title: `${symbol} 발행 요청 중...`, status: "info" });
+
+      // 이제 안전하게 트랜잭션 실행
       await writeContractAsync({
         address: tokenAddress,
         abi: MockERC20Abi,
         functionName: 'mint',
-        args: [address!, 100000n * 10n**18n] 
+        args: [address!, 100000n * 10n**18n] // 10만 개 발행
       });
-      alert(`100,000 ${symbol} Minted! (Wait for block)`);
-    } catch (e) {
+
+      toast({ status: 'success', title: '발행 완료!', description: `100,000 ${symbol}가 지급되었습니다.` });
+      
+    } catch (e: any) {
       console.error(e);
+      toast({ status: 'error', title: '실패', description: e.message });
     }
   };
 
@@ -75,7 +109,6 @@ export function MyWalletPanel() {
         <HStack justify="space-between" mb={6} wrap="wrap" spacing={4}>
            <Heading size="md" color="white">My Portfolio</Heading>
            
-           {/* 지갑 주소 및 복사 버튼 */}
            <HStack bg="blackAlpha.400" p={2} borderRadius="lg" border="1px solid" borderColor="railx.700">
              <Badge colorScheme={address ? "green" : "gray"} variant="subtle" fontSize="xs">
                {address ? "ACTIVE" : "DISCONNECTED"}
@@ -156,6 +189,7 @@ export function MyWalletPanel() {
                   <Text fontWeight="bold" fontFamily="monospace" color="gray.200">
                     {asset.value.toLocaleString()}
                   </Text>
+                  {/* 🔥 Mint 버튼 클릭 시 handleMint 호출 */}
                   <Button size="xs" variant="ghost" color="gray.500" _hover={{ color: 'railx.accent' }} onClick={() => handleMint(tokens[idx].address, asset.name)}>
                     + Mint
                   </Button>
