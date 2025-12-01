@@ -83,7 +83,7 @@ export function VaultPanel() {
   // 2. 전략 & 마켓 데이터 조회
   const fetchStrategies = useCallback(async () => {
     if (!address) return;
-    const { data } = await supabase.from('liquidity_orders').select('*').eq('lp_wallet_address', address.toLowerCase()).order('created_at', { ascending: false });
+    const { data } = await supabase.from('liquidity_orders').select('*').eq('lp_wallet_address', address.toLowerCase()).order('updated_at', { ascending: false });
     if (data) setMyStrategies(data);
   }, [address]);
 
