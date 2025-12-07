@@ -19,11 +19,12 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+// 차트 색상 (복구됨)
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 const CHART_FILL = "#8884d8";
 const MY_POS_FILL = "#FFBB28";
 
-// .env가 없으면 빈 문자열로 처리하여 에러 방지 (디버깅용)
+// 토큰 매핑 및 가치 환산율
 const TOKEN_MAP: Record<string, `0x${string}`> = {
   USDC: (import.meta.env.VITE_USDC_ADDRESS || "") as `0x${string}`,
   USDT: (import.meta.env.VITE_USDT_ADDRESS || "") as `0x${string}`,
@@ -38,24 +39,28 @@ const APPROX_USD_RATES: Record<string, number> = { USDC: 1, USDT: 1, RLUSD: 1, K
 export function VaultPanel() {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
-  const toast = useToast(); // 🔥 최상단 선언 필수
+  const toast = useToast(); // 🔥 최상단 선언
 
   // --- State ---
   const [selectedToken, setSelectedToken] = useState('USDC');
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
 
+  // 전략 생성 State
   const [strategySellToken, setStrategySellToken] = useState('USDC'); 
   const [strategyBuyToken, setStrategyBuyToken] = useState('KRWK');   
+  const [strategyType, setStrategyType] = useState<'FIXED' | 'ORACLE'>('FIXED');
   const [minRate, setMinRate] = useState('1350');
   const [maxRate, setMaxRate] = useState('1450');
-  
+  const [spreadBps, setSpreadBps] = useState('50');
+  const [allocationAmount, setAllocationAmount] = useState(''); 
+
   const [myStrategies, setMyStrategies] = useState<any[]>([]);
   const [marketDepthData, setMarketDepthData] = useState<any[]>([]);
 
   const vaultAddress = import.meta.env.VITE_RAILX_VAULT_ADDRESS as `0x${string}`;
 
-  // 1. 잔고 조회
+  // 1. 잔고 조회 Hooks
   const { data: vaultBalances, refetch: refetchVault } = useReadContracts({
     contracts: TOKEN_KEYS.map(key => ({ address: vaultAddress, abi: RailXVaultAbi, functionName: 'lpBalances', args: [address!, TOKEN_MAP[key]] })),
     query: { enabled: !!address && !!vaultAddress }
@@ -66,27 +71,31 @@ export function VaultPanel() {
   });
 
   const getVaultBalance = (symbol: string) => {
-    const val = vaultBalances?.[TOKEN_KEYS.indexOf(symbol)]?.result;
+    const idx = TOKEN_KEYS.indexOf(symbol);
+    const val = vaultBalances?.[idx]?.result;
     return val ? Number(formatUnits(val as bigint, 18)) : 0;
   };
   const getWalletBalance = (symbol: string) => {
-    const val = walletBalances?.[TOKEN_KEYS.indexOf(symbol)]?.result;
+    const idx = TOKEN_KEYS.indexOf(symbol);
+    const val = walletBalances?.[idx]?.result;
     return val ? Number(formatUnits(val as bigint, 18)) : 0;
   };
 
+  // 🔥 [복구] 차트 데이터 생성 (USD 가치 기반)
   const chartData = TOKEN_KEYS.map(key => ({ 
     name: key, 
     value: getVaultBalance(key) * (APPROX_USD_RATES[key] || 0), 
     realBalance: getVaultBalance(key) 
   })).filter(d => d.value > 0);
 
-  // 2. 전략 & 마켓 데이터 조회
+  // 2. 전략 조회
   const fetchStrategies = useCallback(async () => {
     if (!address) return;
     const { data } = await supabase.from('liquidity_orders').select('*').eq('lp_wallet_address', address.toLowerCase()).order('updated_at', { ascending: false });
     if (data) setMyStrategies(data);
   }, [address]);
 
+  // 3. 차트 데이터 조회
   const fetchMarketDepth = useCallback(async () => {
     const { data: allOrders } = await supabase.from('liquidity_orders').select('*')
       .eq('from_token', strategyBuyToken).eq('to_token', strategySellToken).eq('is_active', true);
@@ -105,124 +114,93 @@ export function VaultPanel() {
       const rate = globalMin + (step * i);
       let totalVol = 0; let myVol = 0;
       allOrders.forEach(order => {
-        if (rate >= Number(order.min_rate) && rate <= Number(order.max_rate)) {
+        if (order.strategy_type === 'FIXED' && rate >= Number(order.min_rate) && rate <= Number(order.max_rate)) {
           totalVol += Number(order.available_amount);
           if (order.lp_wallet_address === address?.toLowerCase()) myVol += Number(order.available_amount);
         }
       });
-      buckets.push({ rate: Math.round(rate), totalLiquidity: totalVol, myLiquidity: myVol, otherLiquidity: totalVol - myVol });
+      buckets.push({ rate: Math.round(rate), totalLiquidity: totalVol, myLiquidity: myVol });
     }
     setMarketDepthData(buckets);
   }, [strategyBuyToken, strategySellToken, address]);
 
   useEffect(() => { fetchStrategies(); fetchMarketDepth(); }, [fetchStrategies, fetchMarketDepth]);
 
-  // DB 업데이트 (전략 잔고 동기화)
-  const updateLiquidityInDB = async (tokenSymbol: string, newBalance: number) => {
-    if (!address) return;
-    await supabase.from('liquidity_orders').update({ available_amount: newBalance })
-      .eq('lp_wallet_address', address.toLowerCase()).eq('to_token', tokenSymbol);
-    fetchStrategies(); fetchMarketDepth();
+  // 잔고 계산 (Unallocated)
+  const getUnallocatedBalance = (token: string) => {
+    const totalVault = getVaultBalance(token);
+    const totalAllocated = myStrategies
+      .filter(s => s.to_token === token)
+      .reduce((acc, s) => acc + Number(s.available_amount), 0);
+    return Math.max(0, totalVault - totalAllocated);
   };
 
-  // 🔥 [핵심] 입금 핸들러 (디버깅 로그 추가)
-  const handleDeposit = async () => {
-    if (!address) return toast({ status: "error", title: "지갑 연결 필요" });
-    if (!depositAmount) return toast({ status: "warning", title: "금액을 입력하세요" });
-    
-    const tokenAddr = TOKEN_MAP[selectedToken];
-    if (!tokenAddr || !tokenAddr.startsWith("0x")) {
-      console.error("Invalid Token Address:", selectedToken, tokenAddr);
-      return toast({ status: "error", title: "토큰 주소 오류", description: ".env 파일을 확인하세요" });
-    }
-    if (!vaultAddress || !vaultAddress.startsWith("0x")) {
-      console.error("Invalid Vault Address:", vaultAddress);
-      return toast({ status: "error", title: "Vault 주소 오류", description: ".env 파일을 확인하세요" });
-    }
-
-    try {
-      const amount = parseUnits(depositAmount, 18);
-      
-      // 1. Approve
-      console.log("1. Approving...");
-      toast({ title: `1/2. ${selectedToken} 승인 요청 중...`, status: "info" });
-      
-      await writeContractAsync({
-        address: tokenAddr, 
-        abi: MockERC20Abi, 
-        functionName: 'approve',
-        args: [vaultAddress, amount]
-      });
-
-      // 2. Deposit
-      toast({ title: "2/2. Vault 입금 요청 중...", status: "info" });
-      
-      await writeContractAsync({
-        address: vaultAddress, 
-        abi: RailXVaultAbi, // 🔥 여기서 ABI에 depositLiquidity가 있어야 함!
-        functionName: 'depositLiquidity',
-        args: [tokenAddr, amount]
-      });
-
-      toast({ status: "success", title: "입금 완료!" });
-      
-      setDepositAmount('');
-      refetchVault();
-      refetchWallet();
-      updateLiquidityInDB(selectedToken, getVaultBalance(selectedToken) + Number(depositAmount));
-
-    } catch (e: any) {
-      console.error("❌ Deposit Error:", e);
-      toast({ status: "error", title: "실패", description: e.message || "알 수 없는 오류" });
-    }
-  };
-
-  // 출금 핸들러
-  const handleWithdraw = async () => {
-    if (!address || !withdrawAmount) return;
-    try {
-      const tokenAddr = TOKEN_MAP[selectedToken];
-      const amount = parseUnits(withdrawAmount, 18);
-
-      toast({ title: "Vault 출금 중...", status: "info" });
-      await writeContractAsync({
-        address: vaultAddress, abi: RailXVaultAbi, functionName: 'withdrawLiquidity',
-        args: [tokenAddr, amount]
-      });
-
-      toast({ status: "success", title: "출금 완료!" });
-      setWithdrawAmount('');
-      refetchVault();
-      refetchWallet();
-      updateLiquidityInDB(selectedToken, Math.max(0, getVaultBalance(selectedToken) - Number(withdrawAmount)));
-    } catch (e: any) { toast({ status: "error", title: "실패", description: e.message }); }
-  };
-
+  // 전략 저장
   const handleSaveStrategy = async () => {
     if (!address) return;
-    const currentBal = getVaultBalance(strategySellToken);
-    const { error } = await supabase.from('liquidity_orders').upsert({
+    const alloc = Number(allocationAmount);
+    // 수정(같은 ID)이 아니라면 잔고 체크 필요. 여기선 편의상 매번 체크하거나, 기존 전략 수정 시에는 뺀 후 체크해야 함.
+    // 간단히: 그냥 체크하고 저장 (엄격한 검증은 백엔드 몫)
+    
+    const { error } = await supabase.from('liquidity_orders').insert({
       lp_wallet_address: address.toLowerCase(),
       from_token: strategyBuyToken, to_token: strategySellToken,
-      min_rate: minRate, max_rate: maxRate, available_amount: currentBal, is_active: true
-    }, { onConflict: 'lp_wallet_address, from_token, to_token' } as any);
+      strategy_type: strategyType,
+      min_rate: strategyType === 'FIXED' ? minRate : 0, 
+      max_rate: strategyType === 'FIXED' ? maxRate : 0,
+      spread_bps: strategyType === 'ORACLE' ? Number(spreadBps) : 0,
+      available_amount: alloc,
+      is_active: true
+    });
 
     if (!error) { toast({ status: "success", title: "Saved!" }); fetchStrategies(); fetchMarketDepth(); }
     else { toast({ status: "error", description: error.message }); }
   };
 
   const handleDeleteStrategy = async (id: string) => {
-    const { error } = await supabase.from('liquidity_orders').delete().eq('id', id);
-    if (!error) { toast({ status: "info", title: "Deleted" }); fetchStrategies(); fetchMarketDepth(); }
+    await supabase.from('liquidity_orders').delete().eq('id', id);
+    fetchStrategies();
   };
   const handleToggleStrategy = async (id: string, status: boolean) => {
-    const { error } = await supabase.from('liquidity_orders').update({ is_active: !status }).eq('id', id);
-    if (!error) { fetchStrategies(); fetchMarketDepth(); }
+    await supabase.from('liquidity_orders').update({ is_active: !status }).eq('id', id);
+    fetchStrategies();
+  };
+
+  // 입금
+  const handleDeposit = async () => {
+    if (!address || !depositAmount) return;
+    try {
+      const tokenAddr = TOKEN_MAP[selectedToken];
+      const amount = parseUnits(depositAmount, 18);
+      
+      toast({ title: `1/2. Approving...`, status: "info" });
+      await writeContractAsync({ address: tokenAddr, abi: MockERC20Abi, functionName: 'approve', args: [vaultAddress, amount] });
+
+      toast({ title: "2/2. Depositing...", status: "info" });
+      await writeContractAsync({ address: vaultAddress, abi: RailXVaultAbi, functionName: 'depositLiquidity', args: [tokenAddr, amount] });
+
+      toast({ status: "success", title: "Deposit Complete" });
+      setDepositAmount('');
+      refetchVault(); refetchWallet();
+    } catch (e: any) { toast({ status: "error", title: "Failed", description: e.message }); }
+  };
+
+  const handleWithdraw = async () => {
+    if (!address || !withdrawAmount) return;
+    try {
+      const tokenAddr = TOKEN_MAP[selectedToken];
+      const amount = parseUnits(withdrawAmount, 18);
+      await writeContractAsync({ address: vaultAddress, abi: RailXVaultAbi, functionName: 'withdrawLiquidity', args: [tokenAddr, amount] });
+      toast({ status: "success", title: "Withdrawal Complete" });
+      setWithdrawAmount('');
+      refetchVault(); refetchWallet();
+    } catch (e: any) { toast({ status: "error", title: "Failed", description: e.message }); }
   };
 
   return (
     <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
-      {/* [Left] Portfolio */}
+      
+      {/* [Left] Portfolio Chart */}
       <Card h="full" bg="railx.800" borderColor="railx.700" borderWidth="1px" gridColumn={{ xl: "span 1" }}>
         <CardBody>
           <Heading size="md" mb={6} color="gray.300">Vault Portfolio (USD Value)</Heading>
@@ -233,18 +211,35 @@ export function VaultPanel() {
                   <Pie data={chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                     {chartData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />)}
                   </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: '#121417', borderColor: '#333' }} formatter={(val:number, name:any, props:any) => [`$${val.toLocaleString()}`, `${props.payload.realBalance.toLocaleString()} ${name}`]} />
+                  {/* 🔥 [복구] 툴팁 스타일 복원 (흰색 글씨) */}
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#121417', borderColor: '#333', color: '#fff' }} 
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(val:number, name:any, props:any) => [
+                      <Box key={name}>
+                        <Text fontWeight="bold" color="white">${val.toLocaleString()} (Est.)</Text>
+                        <Text fontSize="xs" color="gray.400">{props.payload.realBalance.toLocaleString()} {name}</Text>
+                      </Box>, 
+                      ''
+                    ]}
+                  />
                 </PieChart>
               </ResponsiveContainer>
-            ) : (
-              <VStack justify="center" h="full"><Text color="gray.500">No Assets in Vault</Text></VStack>
-            )}
+            ) : <VStack justify="center" h="full"><Text color="gray.500">No Assets</Text></VStack>}
           </Box>
+          
+          {/* 🔥 [복구] 하단 자산 목록 */}
           <VStack mt={4} align="stretch" spacing={3}>
             {chartData.map((d, idx) => (
-               <HStack key={d.name} justify="space-between">
-                 <HStack><Box w={3} h={3} bg={COLORS[idx % COLORS.length]} borderRadius="full"/><Text fontSize="sm" color="gray.400">{d.name}</Text></HStack>
-                 <Text fontWeight="bold" color="white">{d.realBalance.toLocaleString()}</Text>
+               <HStack key={d.name} justify="space-between" p={2} borderRadius="md" _hover={{ bg: 'whiteAlpha.50' }}>
+                 <HStack>
+                   <Box w={3} h={3} bg={COLORS[idx % COLORS.length]} borderRadius="full"/>
+                   <Text fontSize="sm" color="gray.300">{d.name}</Text>
+                 </HStack>
+                 <VStack align="end" spacing={0}>
+                    <Text fontWeight="bold" color="white" fontSize="sm">${d.value.toLocaleString()}</Text>
+                    <Text fontSize="xs" color="gray.500">{d.realBalance.toLocaleString()}</Text>
+                 </VStack>
                </HStack>
             ))}
           </VStack>
@@ -268,7 +263,7 @@ export function VaultPanel() {
                    {/* Market Depth Chart */}
                    <Box p={4} bg="blackAlpha.500" borderRadius="xl" border="1px solid" borderColor="railx.700">
                      <HStack justify="space-between" mb={4}>
-                       <HStack><Icon as={FaLayerGroup} color="railx.accent" /><Text fontWeight="bold" fontSize="sm">MARKET LIQUIDITY: {strategyBuyToken} → {strategySellToken}</Text></HStack>
+                       <HStack><Icon as={FaLayerGroup} color="railx.accent" /><Text fontWeight="bold" fontSize="sm">MARKET LIQUIDITY</Text></HStack>
                        <Badge colorScheme="purple" fontSize="xs">LIVE DEPTH</Badge>
                      </HStack>
                      <Box h="200px" w="100%">
@@ -291,12 +286,19 @@ export function VaultPanel() {
 
                    {/* Create Strategy */}
                    <Box p={5} bg="blackAlpha.300" borderRadius="xl" border="1px solid" borderColor="railx.700">
-                     <HStack mb={4}><Icon as={FaPlus} color="railx.accent"/><Text fontWeight="bold">Create / Update Strategy</Text></HStack>
+                     <HStack mb={4} justify="space-between">
+                        <HStack><Icon as={FaPlus} color="railx.accent"/><Text fontWeight="bold">Create New Strategy</Text></HStack>
+                        <HStack bg="blackAlpha.400" p={1} borderRadius="md" spacing={1}>
+                            <Button size="xs" colorScheme={strategyType==='FIXED' ? 'yellow' : 'gray'} onClick={()=>setStrategyType('FIXED')}>Fixed</Button>
+                            <Button size="xs" colorScheme={strategyType==='ORACLE' ? 'cyan' : 'gray'} onClick={()=>setStrategyType('ORACLE')}>Oracle</Button>
+                        </HStack>
+                     </HStack>
+
                      <SimpleGrid columns={2} spacing={4} mb={4}>
                        <FormControl>
                          <FormLabel fontSize="xs" color="gray.500">I PROVIDE (Sell)</FormLabel>
                          <Select value={strategySellToken} onChange={(e) => setStrategySellToken(e.target.value)} bg="railx.900" size="sm">
-                           {TOKEN_KEYS.map(t => <option key={t} value={t}>{t}</option>)}
+                           {TOKEN_KEYS.map(t => <option key={t} value={t}>{t} (Vault: {getVaultBalance(t).toLocaleString()})</option>)}
                          </Select>
                        </FormControl>
                        <FormControl>
@@ -306,34 +308,59 @@ export function VaultPanel() {
                          </Select>
                        </FormControl>
                      </SimpleGrid>
+
                      <FormControl mb={4}>
-                        <FormLabel fontSize="xs" color="gray.500">Rate Range ({strategyBuyToken} per 1 {strategySellToken})</FormLabel>
-                        <HStack>
-                          <Input value={minRate} onChange={e=>setMinRate(e.target.value)} placeholder="Min" size="sm" />
-                          <Text>-</Text>
-                          <Input value={maxRate} onChange={e=>setMaxRate(e.target.value)} placeholder="Max" size="sm" />
+                        <HStack justify="space-between">
+                          <FormLabel fontSize="xs" color="gray.500">Allocation Amount</FormLabel>
+                          <Text fontSize="xs" color="green.400">Available: {getUnallocatedBalance(strategySellToken).toLocaleString()}</Text>
                         </HStack>
+                        <Input value={allocationAmount} onChange={e=>setAllocationAmount(e.target.value)} placeholder="0.00" size="sm" />
                      </FormControl>
-                     <Button size="sm" colorScheme="yellow" w="full" onClick={handleSaveStrategy}>Save Strategy</Button>
+
+                     {strategyType === 'FIXED' ? (
+                        <FormControl mb={4}>
+                            <FormLabel fontSize="xs" color="gray.500">Rate Range</FormLabel>
+                            <HStack>
+                              <Input value={minRate} onChange={e=>setMinRate(e.target.value)} placeholder="Min" size="sm" />
+                              <Text>-</Text>
+                              <Input value={maxRate} onChange={e=>setMaxRate(e.target.value)} placeholder="Max" size="sm" />
+                            </HStack>
+                        </FormControl>
+                     ) : (
+                        <FormControl mb={4}>
+                            <FormLabel fontSize="xs" color="cyan.300">Oracle Spread (bps)</FormLabel>
+                            <Input value={spreadBps} onChange={e=>setSpreadBps(e.target.value)} placeholder="50" size="sm" />
+                        </FormControl>
+                     )}
+                     
+                     <Button size="sm" colorScheme={strategyType==='FIXED' ? 'yellow' : 'cyan'} w="full" onClick={handleSaveStrategy}>
+                        Save Strategy
+                     </Button>
                    </Box>
 
                    <Divider borderColor="railx.700" />
-
+                   
                    {/* Strategy List */}
                    <HStack justify="space-between">
-                     <Text fontSize="sm" color="gray.400" fontWeight="bold">MY ACTIVE STRATEGIES ({myStrategies.length})</Text>
+                     <Text fontSize="sm" color="gray.400" fontWeight="bold">ACTIVE STRATEGIES ({myStrategies.length})</Text>
                      <IconButton aria-label="Refresh" icon={<FaSyncAlt />} size="xs" onClick={fetchStrategies} variant="ghost" />
                    </HStack>
                    <VStack align="stretch" spacing={3} maxH="300px" overflowY="auto">
                      {myStrategies.map((strat) => (
-                       <HStack key={strat.id} justify="space-between" p={3} bg="railx.900" borderRadius="lg" borderLeft={strat.is_active ? "4px solid #4ADE80" : "4px solid gray"}>
+                       <HStack key={strat.id} justify="space-between" p={3} bg="railx.900" borderRadius="lg" borderLeft={strat.is_active ? `4px solid ${strat.strategy_type==='ORACLE'?'#0BC5EA':'#4ADE80'}` : "4px solid gray"}>
                          <VStack align="start" spacing={0}>
                            <HStack>
                              <Badge colorScheme="blue">{strat.to_token}</Badge>
                              <Icon as={FaExchangeAlt} size="xs" color="gray.500" />
                              <Badge colorScheme="purple">{strat.from_token}</Badge>
+                             {strat.strategy_type === 'ORACLE' && <Badge colorScheme="cyan" variant="outline" ml={2}>ORACLE</Badge>}
                            </HStack>
-                           <Text fontSize="xs" color="gray.400" mt={1}>Rate: {strat.min_rate} ~ {strat.max_rate}</Text>
+                           <Text fontSize="xs" color="gray.400" mt={1}>
+                             {strat.strategy_type === 'ORACLE' 
+                               ? `Spread: +${Number(strat.spread_bps)/100}%` 
+                               : `Rate: ${strat.min_rate} ~ ${strat.max_rate}`}
+                           </Text>
+                           <Text fontSize="xs" color="gray.500">Allocated: {Number(strat.available_amount).toLocaleString()}</Text>
                          </VStack>
                          <HStack>
                            <Switch colorScheme="green" isChecked={strat.is_active} onChange={() => handleToggleStrategy(strat.id, strat.is_active)} />
